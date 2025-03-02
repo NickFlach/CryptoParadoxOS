@@ -180,7 +180,15 @@ class GitHubDataBuilder:
         """
         normalized_name = self.normalize_repo_name(repo_name)
         resource_path = f"repos/{normalized_name}/stats/{stat_type}"
-        return self.api_request(resource_path, use_cache)
+        result = self.api_request(resource_path, use_cache)
+        
+        # Ensure we return a list
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict) and result:
+            return [result]
+        else:
+            return []
     
     def get_contributors(self, repo_name: str, use_cache: bool = True) -> List[Dict[str, Any]]:
         """
@@ -195,7 +203,15 @@ class GitHubDataBuilder:
         """
         normalized_name = self.normalize_repo_name(repo_name)
         resource_path = f"repos/{normalized_name}/contributors"
-        return self.api_request(resource_path, use_cache)
+        result = self.api_request(resource_path, use_cache)
+        
+        # Ensure we return a list
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict) and result:
+            return [result]
+        else:
+            return []
     
     def get_issues(self, repo_name: str, state: str = "all", use_cache: bool = True) -> List[Dict[str, Any]]:
         """
@@ -211,7 +227,15 @@ class GitHubDataBuilder:
         """
         normalized_name = self.normalize_repo_name(repo_name)
         resource_path = f"repos/{normalized_name}/issues?state={state}&per_page=100"
-        return self.api_request(resource_path, use_cache)
+        result = self.api_request(resource_path, use_cache)
+        
+        # Ensure we return a list
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict) and result:
+            return [result]
+        else:
+            return []
     
     def get_repository_dependencies(self, repo_name: str, use_cache: bool = True) -> List[str]:
         """
@@ -401,7 +425,8 @@ class GitHubDataBuilder:
         # Initialize graph data
         edges = []
         visited = set()
-        to_visit = [(self.normalize_repo_name(root_repo), 0)]  # (repo, depth)
+        # Store as list of lists instead of tuples to avoid LSP type errors
+        to_visit = [[self.normalize_repo_name(root_repo), 0]]  # [repo, depth]
         
         while to_visit:
             repo, depth = to_visit.pop(0)
@@ -424,7 +449,9 @@ class GitHubDataBuilder:
                 
                 # Add to visit queue if not at max depth
                 if depth < max_depth:
-                    to_visit.append((normalized_dep, depth + 1))
+                    # Use list instead of tuple to avoid LSP type error
+                    next_depth = depth + 1
+                    to_visit.append([normalized_dep, next_depth])
         
         # Create DataFrame
         df = pd.DataFrame(edges, columns=["parent", "child"])

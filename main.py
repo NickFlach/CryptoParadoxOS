@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import networkx as nx
 import base64
 import io
+import os
 from PIL import Image
 
 from graph_processor import (
@@ -17,6 +18,7 @@ from github_metrics import (
     extract_github_metrics,
     normalize_github_features
 )
+from github_data_builder import GitHubDataBuilder
 from model import (
     train_ranking_model,
     predict_funding_allocation,
@@ -104,6 +106,15 @@ with st.sidebar:
     max_tier_level = st.number_input("Max Tier Level", min_value=1, max_value=10, value=5)
     
     include_github_metrics = st.checkbox("Include GitHub Metrics", value=True)
+    if include_github_metrics:
+        use_real_github_data = st.checkbox("Use Real GitHub Data", value=False,
+                                          help="Fetch real data from GitHub API instead of simulated data. May require a GitHub token.")
+        if use_real_github_data:
+            st.session_state["use_real_github_data"] = True
+            if not os.environ.get("GITHUB_TOKEN"):
+                st.warning("⚠️ No GitHub token found. You may encounter rate limits. Consider adding a GITHUB_TOKEN to your environment variables.")
+        else:
+            st.session_state["use_real_github_data"] = False
     
     # Model selection
     st.markdown("### Model Selection")
@@ -172,7 +183,22 @@ with tab2:
             
             # Get GitHub metrics if enabled
             if include_github_metrics:
-                github_metrics = extract_github_metrics(G.nodes())
+                # Initialize the GitHub data builder
+                github_token = os.environ.get("GITHUB_TOKEN")
+                use_real_github_data = st.session_state.get("use_real_github_data", False)
+                
+                if use_real_github_data and github_token:
+                    st.info("Using real GitHub API data (with token)")
+                    github_builder = GitHubDataBuilder(token=github_token)
+                    github_metrics = github_builder.extract_github_metrics_batch(list(G.nodes()), use_cache=True)
+                elif use_real_github_data:
+                    st.warning("Using real GitHub API data (without token, rate limits apply)")
+                    github_builder = GitHubDataBuilder()
+                    github_metrics = github_builder.extract_github_metrics_batch(list(G.nodes()), use_cache=True)
+                else:
+                    st.info("Using simulated GitHub data")
+                    github_metrics = extract_github_metrics(G.nodes())
+                
                 github_features = normalize_github_features(github_metrics)
             else:
                 github_features = None
