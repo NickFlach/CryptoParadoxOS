@@ -161,13 +161,19 @@ with tab1:
                 # Graph metrics
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
                 st.markdown("#### Graph Metrics")
+                
+                # Convert to lists to avoid type issues
+                nodes_list = list(G.nodes())
+                edges_list = list(G.edges())
+                degree_values = [d for _, d in G.degree()]
+                
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("Number of Nodes", len(G.nodes()))
+                    st.metric("Number of Nodes", len(nodes_list))
                 with col2:
-                    st.metric("Number of Edges", len(G.edges()))
+                    st.metric("Number of Edges", len(edges_list))
                 with col3:
-                    st.metric("Average Degree", round(sum(dict(G.degree()).values()) / len(G.nodes()), 2))
+                    st.metric("Average Degree", round(sum(degree_values) / len(nodes_list), 2) if nodes_list else 0)
                 st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
@@ -187,17 +193,20 @@ with tab2:
                 github_token = os.environ.get("GITHUB_TOKEN")
                 use_real_github_data = st.session_state.get("use_real_github_data", False)
                 
+                # Convert G.nodes() to a list to ensure correct type
+                nodes_list = [str(node) for node in G.nodes()]
+                
                 if use_real_github_data and github_token:
                     st.info("Using real GitHub API data (with token)")
                     github_builder = GitHubDataBuilder(token=github_token)
-                    github_metrics = github_builder.extract_github_metrics_batch(list(G.nodes()), use_cache=True)
+                    github_metrics = github_builder.extract_github_metrics_batch(nodes_list, use_cache=True)
                 elif use_real_github_data:
                     st.warning("Using real GitHub API data (without token, rate limits apply)")
                     github_builder = GitHubDataBuilder()
-                    github_metrics = github_builder.extract_github_metrics_batch(list(G.nodes()), use_cache=True)
+                    github_metrics = github_builder.extract_github_metrics_batch(nodes_list, use_cache=True)
                 else:
                     st.info("Using simulated GitHub data")
-                    github_metrics = extract_github_metrics(G.nodes())
+                    github_metrics = extract_github_metrics(nodes_list)
                 
                 github_features = normalize_github_features(github_metrics)
             else:

@@ -30,7 +30,8 @@ def create_dependency_graph_visualization(
     logger.info("Creating dependency graph visualization...")
     
     # Limit nodes for visualization if too many
-    if len(G.nodes()) > max_nodes:
+    nodes_list = list(G.nodes())
+    if len(nodes_list) > max_nodes:
         logger.info(f"Limiting graph to {max_nodes} nodes for visualization")
         
         # Take a subset based on most important nodes if node_size_map is provided
@@ -39,10 +40,11 @@ def create_dependency_graph_visualization(
             nodes_to_keep = [n for n, _ in important_nodes[:max_nodes]]
         else:
             # Otherwise take nodes with highest degree
-            node_degrees = sorted(G.degree(), key=lambda x: x[1], reverse=True)
+            degree_list = list(G.degree())
+            node_degrees = sorted(degree_list, key=lambda x: x[1], reverse=True)
             nodes_to_keep = [n for n, _ in node_degrees[:max_nodes]]
         
-        G = G.subgraph(nodes_to_keep)
+        G = nx.DiGraph(G.subgraph(nodes_to_keep))
     
     # Create position layout using spring layout
     pos = nx.spring_layout(G, seed=42)
@@ -59,15 +61,16 @@ def create_dependency_graph_visualization(
         # Use provided size map, normalize to reasonable values
         sizes = [node_size_map.get(node, 0) * 50 + 10 for node in G.nodes()]
     else:
-        # Use degree as size
-        sizes = [(G.degree(node) + 1) * 5 for node in G.nodes()]
+        # Use degree as size, convert to list to avoid type issues
+        degree_dict = dict(G.degree())
+        sizes = [(degree_dict.get(node, 0) + 1) * 5 for node in G.nodes()]
     
     # Create colorscale values based on node metrics
     if node_size_map:
         node_color = [node_size_map.get(node, 0) for node in G.nodes()]
     else:
-        # Use degree as color
-        node_color = [G.degree(node) for node in G.nodes()]
+        # Use degree as color, using the same dictionary conversion for type safety
+        node_color = [degree_dict.get(node, 0) for node in G.nodes()]
     
     # Create node trace
     node_trace = go.Scatter(
