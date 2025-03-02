@@ -1,0 +1,41 @@
+owner,repo_name,description,language,stars,forks,open_issues,watchers_count,license,created_at,updated_at,last_push_date,size
+ethereum,go-ethereum,Zero-knowledge proof implementation for Ethereum,Solidity,28263,5186,320,5652,Apache-2.0,2020-09-14T23:33:53Z,2024-12-08T23:33:53Z,2025-02-18T23:33:53Z,45426
+ethereum,solidity,solidity - A Go implementation for Ethereum,Go,45009,2160,312,9001,MIT,2022-02-23T23:33:53Z,2025-02-15T23:33:53Z,2025-02-19T23:33:53Z,58992
+ethereum,py-evm,py-evm - A C++ implementation for Ethereum,C++,10469,2177,164,2093,BSD-3-Clause,2023-11-11T23:33:53Z,2025-02-03T23:33:53Z,2025-02-22T23:33:53Z,66703
+ethereum,consensus-specs,consensus-specs utility for blockchain development,Solidity,45224,3889,314,9044,LGPL-3.0,2020-03-18T23:33:53Z,2025-02-12T23:33:53Z,2025-02-11T23:33:53Z,17715
+ethereum,execution-apis,Layer 2 scaling solution for Ethereum,Solidity,6843,5784,300,1368,MIT,2022-04-06T23:33:53Z,2025-01-09T23:33:53Z,2025-02-13T23:33:53Z,13806
+ethereum,remix,Official Python library for Ethereum,Python,11684,6373,316,2336,Apache-2.0,2020-12-05T23:33:53Z,2024-12-23T23:33:53Z,2025-01-31T23:33:53Z,40300
+ethereum,EIPs,Smart contract development tools for C++,C++,16180,8087,464,3236,BSD-3-Clause,2021-03-18T23:33:53Z,2025-01-14T23:33:53Z,2025-02-18T23:33:53Z,44513
+OpenZeppelin,openzeppelin-contracts,openzeppelin-contracts - A Solidity implementation for Ethereum,Solidity,958,482,16,191,BSD-3-Clause,2024-02-19T23:33:53Z,2025-02-17T23:33:53Z,2025-02-27T23:33:53Z,46429
+trufflesuite,truffle,Ethereum Virtual Machine implementation in TypeScript,TypeScript,1694,613,80,338,GPL-3.0,2021-06-28T23:33:53Z,2025-02-15T23:33:53Z,2025-01-31T23:33:53Z,20848
+ethers-io,ethers.js,Ethereum ethers.js implementation,Go,5363,56,91,1072,BSD-3-Clause,2020-10-31T23:33:53Z,2025-02-27T23:33:53Z,2025-02-13T23:33:53Z,43457
+repo822,eth-13,eth-13 - A TypeScript implementation for Ethereum,TypeScript,1246,1778,68,249,GPL-3.0,2021-02-14T23:33:53Z,2024-12-11T23:33:53Z,2025-02-03T23:33:53Z,38237
+matter-labs,web3.js,Ethereum web3.js implementation,C++,10789,1356,195,2157,LGPL-3.0,2020-08-27T23:33:53Z,2025-01-11T23:33:53Z,2025-02-18T23:33:53Z,30272
+ChainSafe,contracts,Ethereum contracts implementation,Rust,13883,1255,7,2776,LGPL-3.0,2022-07-09T23:33:53Z,2025-02-22T23:33:53Z,2025-01-31T23:33:53Z,35046
+repo218,eth-32,eth-32 - A C++ implementation for Ethereum,C++,5172,1547,148,1034,MIT,2022-12-25T23:33:53Z,2024-12-24T23:33:53Z,2025-02-07T23:33:53Z,29557
+AztecProtocol,utils,Smart contract development tools for Rust,Rust,17988,962,104,3597,GPL-3.0,2023-11-25T23:33:53Z,2025-01-24T23:33:53Z,2025-02-12T23:33:53Z,37977
+repo627,eth-34,eth-34 utility for blockchain development,Go,15668,1231,199,3133,GPL-3.0,2023-06-27T23:33:53Z,2025-01-08T23:33:53Z,2025-02-03T23:33:53Z,1194
+matter-labs,layer2,Ethereum Virtual Machine implementation in C++,C++,5122,1473,67,1024,MIT,2021-12-18T23:33:53Z,2025-01-26T23:33:53Z,2025-02-14T23:33:53Z,24999
+web3j,utils,utils utility for blockchain development,Go,4741,1392,135,948,MIT,2024-01-28T23:33:53Z,2024-12-23T23:33:53Z,2025-02-15T23:33:53Z,7655
+repo792,eth-12,eth-12 - A Solidity implementation for Ethereum,Solidity,11755,396,72,2351,MIT,2021-08-01T23:33:53Z,2025-02-01T23:33:53Z,2025-02-24T23:33:53Z,6687
+OpenZeppelin,protocol,protocol - A Go implementation for Ethereum,Go,12548,620,110,2509,BSD-3-Clause,2023-01-22T23:33:53Z,2024-12-22T23:33:53Z,2025-02-06T23:33:53Z,3074
+matter-labs,evm,evm utility for blockchain development,TypeScript,1255,254,170,251,GPL-3.0,2021-09-08T23:33:53Z,2024-12-05T23:33:53Z,2025-02-28T23:33:53Z,26419
+repo867,eth-24,Ethereum Virtual Machine implementation in Python,Python,14036,519,100,2807,GPL-3.0,2024-01-29T23:33:53Z,2025-02-23T23:33:53Z,2025-02-11T23:33:53Z,5157
+ethereum-optimism,client,Layer 2 scaling solution for Ethereum,TypeScript,8497,8148,168,1699,Apache-2.0,2021-05-19T23:33:53Z,2025-01-16T23:33:53Z,2025-02-21T23:33:53Z,98393
+repo618,eth-95,eth-95 - A C++ implementation for Ethereum,C++,10189,140,24,2037,MIT,2022-09-25T23:33:53Z,2025-01-02T23:33:53Z,2025-02-17T23:33:53Z,21273
+ethers-io,node,Smart contract development tools for TypeScript,TypeScript,17798,1309,127,3559,BSD-3-Clause,2020-12-19T23:33:53Z,2024-12-14T23:33:53Z,2025-02-21T23:33:53Z,21443
+repo774,eth-68,Ethereum Virtual Machine implementation in JavaScript,JavaScript,3793,1648,55,758,LGPL-3.0,2023-02-09T23:33:53Z,2024-12-24T23:33:53Z,2025-01-31T23:33:53Z,46241
+ConsenSys,eth2.0-specs,Zero-knowledge proof implementation for Ethereum,Rust,5096,1708,132,1019,GPL-3.0,2020-09-08T23:33:53Z,2025-01-04T23:33:53Z,2025-02-21T23:33:53Z,10327
+repo709,eth-45,Ethereum Virtual Machine implementation in TypeScript,TypeScript,8248,739,146,1649,MIT,2021-10-21T23:33:53Z,2025-01-25T23:33:53Z,2025-02-07T23:33:53Z,23861
+paritytech,eth2.0-specs,Official TypeScript library for Ethereum,TypeScript,15397,748,150,3079,Apache-2.0,2022-10-13T23:33:53Z,2025-01-17T23:33:53Z,2025-02-02T23:33:53Z,33400
+OpenZeppelin,core,Smart contract development tools for Python,Python,5221,780,43,1044,Apache-2.0,2022-10-08T23:33:53Z,2025-01-04T23:33:53Z,2025-02-02T23:33:53Z,6341
+repo96,eth-12,Layer 2 scaling solution for Ethereum,C++,18518,1984,146,3703,BSD-3-Clause,2020-08-10T23:33:53Z,2024-12-25T23:33:53Z,2025-01-31T23:33:53Z,30491
+ethers-io,geth,geth utility for blockchain development,Go,6397,839,148,1279,MIT,2023-09-23T23:33:53Z,2024-12-08T23:33:53Z,2025-02-12T23:33:53Z,26515
+repo796,eth-64,Zero-knowledge proof implementation for Ethereum,C++,4203,342,60,840,GPL-3.0,2022-03-03T23:33:53Z,2025-01-03T23:33:53Z,2025-02-10T23:33:53Z,27473
+ethereum-optimism,arbitrum,Ethereum arbitrum implementation,Rust,20205,7402,409,4041,MIT,2020-08-16T23:33:53Z,2025-01-16T23:33:53Z,2025-02-01T23:33:53Z,42382
+trufflesuite,layer2,layer2 - A Rust implementation for Ethereum,Rust,12412,184,83,2482,GPL-3.0,2022-08-03T23:33:53Z,2025-01-27T23:33:53Z,2025-02-02T23:33:53Z,9569
+paritytech,zk-sync,Ethereum Virtual Machine implementation in JavaScript,JavaScript,3406,186,188,681,LGPL-3.0,2022-10-22T23:33:53Z,2024-12-21T23:33:53Z,2025-02-24T23:33:53Z,29469
+paritytech,layer2,Zero-knowledge proof implementation for Ethereum,Rust,1319,953,139,263,MIT,2020-11-10T23:33:53Z,2024-12-19T23:33:53Z,2025-02-15T23:33:53Z,26870
+ChainSafe,beacon-chain,Smart contract development tools for Python,Python,17742,813,172,3548,BSD-3-Clause,2022-10-05T23:33:53Z,2025-01-22T23:33:53Z,2025-02-24T23:33:53Z,38604
+ethers-io,core,Zero-knowledge proof implementation for Ethereum,Rust,10903,713,100,2180,Apache-2.0,2021-02-24T23:33:53Z,2025-01-16T23:33:53Z,2025-02-11T23:33:53Z,10960
+ethereum-optimism,plasma,Ethereum plasma implementation,TypeScript,10813,2472,234,2162,GPL-3.0,2023-10-05T23:33:53Z,2025-01-14T23:33:53Z,2025-02-28T23:33:53Z,41038

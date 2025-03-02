@@ -16,7 +16,9 @@ from graph_processor import (
 )
 from github_metrics import (
     extract_github_metrics,
-    normalize_github_features
+    normalize_github_features,
+    ensure_sample_data_exists,
+    generate_sample_dependency_csv
 )
 from github_data_builder import GitHubDataBuilder
 from model import (
@@ -129,12 +131,20 @@ tab1, tab2, tab3, tab4 = st.tabs(["Data Explorer", "Model & Analysis", "Visualiz
 with tab1:
     st.markdown("<h2 class='section-header'>Data Explorer</h2>", unsafe_allow_html=True)
     
+    # Ensure sample data exists
+    ensure_sample_data_exists()
+    
     # Load data
     if uploaded_file is not None:
         dependency_df = pd.read_csv(uploaded_file)
         use_sample_data = False
     elif use_sample_data:
-        dependency_df = pd.read_csv("data/sample_dependency_graph.csv")
+        # Use generated sample data
+        sample_file = "data/ethereum_dependencies.csv"
+        if not os.path.exists(sample_file):
+            sample_file = generate_sample_dependency_csv()
+        dependency_df = pd.read_csv(sample_file)
+        st.success(f"Loaded sample dependency data with {len(dependency_df)} relationships")
     else:
         st.warning("Please upload a dependency graph file or use sample data.")
         dependency_df = None
