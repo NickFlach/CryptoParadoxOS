@@ -108,8 +108,10 @@ def create_dependency_graph_visualization(
     # Create figure
     fig = go.Figure(data=[edge_trace, node_trace],
                    layout=go.Layout(
-                       title='Ethereum Dependency Graph',
-                       titlefont=dict(size=16),
+                       title=dict(
+                           text='Ethereum Dependency Graph',
+                           font=dict(size=16)
+                       ),
                        showlegend=False,
                        hovermode='closest',
                        margin=dict(b=20, l=5, r=5, t=40),
