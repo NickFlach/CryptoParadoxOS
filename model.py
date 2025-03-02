@@ -78,8 +78,9 @@ def train_ranking_model(
     else:
         test_score = None
     
-    logger.info(f"Model training complete: Train R² = {train_score:.4f}, " +
-                f"Test R² = {test_score:.4f if test_score is not None else 'N/A'}")
+    # Fix string formatting
+    test_score_str = f"{test_score:.4f}" if test_score is not None else "N/A"
+    logger.info(f"Model training complete: Train R² = {train_score:.4f}, Test R² = {test_score_str}")
     
     return model
 
