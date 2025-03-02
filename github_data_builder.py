@@ -323,9 +323,24 @@ class GitHubDataBuilder:
             "open_issues": repo_info.get("open_issues_count", 0),
             "watchers": repo_info.get("watchers_count", 0),
             "size": repo_info.get("size", 0),
-            "age_days": (pd.Timestamp.now() - pd.Timestamp(repo_info.get("created_at"))).days,
-            "last_updated_days": (pd.Timestamp.now() - pd.Timestamp(repo_info.get("updated_at"))).days,
         }
+        
+        # Handle timestamps with timezone awareness
+        current_time = pd.Timestamp.now()
+        
+        # Calculate age in days
+        if repo_info.get("created_at"):
+            created_time = pd.Timestamp(repo_info.get("created_at")).tz_localize(None)  # Remove timezone
+            metrics["age_days"] = (current_time - created_time).days
+        else:
+            metrics["age_days"] = 365  # Default to 1 year if no creation date
+            
+        # Calculate days since last update
+        if repo_info.get("updated_at"):
+            updated_time = pd.Timestamp(repo_info.get("updated_at")).tz_localize(None)  # Remove timezone
+            metrics["last_updated_days"] = (current_time - updated_time).days
+        else:
+            metrics["last_updated_days"] = 30  # Default to 1 month if no update date
         
         # Get commit stats (a bit more advanced)
         commit_activity = self.get_repo_stats(repo_name, "commit_activity", use_cache)
@@ -514,15 +529,19 @@ class GitHubDataBuilder:
         metrics = {
             "stars": scraped_data.get("stars", 0),
             "forks": scraped_data.get("forks", 0),
-            "watchers": scraped_data.get("watchers", 0)
+            "watchers": scraped_data.get("watchers", 0),
+            "age_days": 365  # Default age for scraped repositories (1 year)
         }
         
         # Calculate age if possible
         if "updated_at" in scraped_data:
             try:
-                metrics["last_updated_days"] = (pd.Timestamp.now() - pd.Timestamp(scraped_data["updated_at"])).days
-            except:
-                metrics["last_updated_days"] = 0
+                # Handle timezone safely
+                updated_time = pd.Timestamp(scraped_data["updated_at"]).tz_localize(None)  # Remove timezone
+                metrics["last_updated_days"] = (pd.Timestamp.now() - updated_time).days
+            except Exception as e:
+                logger.warning(f"Error calculating update time for {repo_name}: {e}")
+                metrics["last_updated_days"] = 30  # Default to 1 month
         
         # Generate some derived metrics based on what we have
         # Note: These are less accurate than the API metrics but provide something to work with
