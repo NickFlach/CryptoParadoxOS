@@ -109,14 +109,35 @@ with st.sidebar:
     
     include_github_metrics = st.checkbox("Include GitHub Metrics", value=True)
     if include_github_metrics:
-        use_real_github_data = st.checkbox("Use Real GitHub Data", value=False,
-                                          help="Fetch real data from GitHub API instead of simulated data. May require a GitHub token.")
-        if use_real_github_data:
-            st.session_state["use_real_github_data"] = True
-            if not os.environ.get("GITHUB_TOKEN"):
-                st.warning("⚠️ No GitHub token found. You may encounter rate limits. Consider adding a GITHUB_TOKEN to your environment variables.")
-        else:
-            st.session_state["use_real_github_data"] = False
+        github_data_source = st.radio(
+            "GitHub Data Source",
+            options=["Simulated Data", "GitHub API", "Web Scraping"],
+            index=0,
+            help="Choose data source: Simulated data (offline), GitHub API (requires token), or Web Scraping (no token needed)"
+        )
+        
+        use_real_github_data = github_data_source in ["GitHub API", "Web Scraping"]
+        use_web_scraping = github_data_source == "Web Scraping"
+        
+        # Store in session state
+        st.session_state["use_real_github_data"] = use_real_github_data
+        st.session_state["use_web_scraping"] = use_web_scraping
+        
+        if github_data_source == "GitHub API" and not os.environ.get("GITHUB_TOKEN"):
+            st.warning("⚠️ No GitHub token found. You may encounter rate limits. Consider adding a GITHUB_TOKEN to your environment variables.")
+            
+        if github_data_source == "Web Scraping":
+            st.info("ℹ️ Web scraping will extract data directly from GitHub web pages. This is slower but doesn't require an API token.")
+            
+            # Add scraping limits/options
+            max_repos_to_scrape = st.slider(
+                "Max Repos to Scrape", 
+                min_value=5, 
+                max_value=100, 
+                value=20,
+                help="Limit the number of repositories to scrape to avoid timeouts or potential blocking"
+            )
+            st.session_state["max_repos_to_scrape"] = max_repos_to_scrape
     
     # Model selection
     st.markdown("### Model Selection")
@@ -202,11 +223,26 @@ with tab2:
                 # Initialize the GitHub data builder
                 github_token = os.environ.get("GITHUB_TOKEN")
                 use_real_github_data = st.session_state.get("use_real_github_data", False)
+                use_web_scraping = st.session_state.get("use_web_scraping", False)
                 
                 # Convert G.nodes() to a list to ensure correct type
                 nodes_list = [str(node) for node in G.nodes()]
                 
-                if use_real_github_data and github_token:
+                # Limit the number of nodes for web scraping if needed
+                if use_web_scraping and "max_repos_to_scrape" in st.session_state:
+                    max_repos = st.session_state["max_repos_to_scrape"]
+                    if len(nodes_list) > max_repos:
+                        st.warning(f"Limiting web scraping to {max_repos} repositories (out of {len(nodes_list)} total)")
+                        # Sort by PageRank score to prioritize important repos
+                        nodes_with_scores = [(node, pagerank_scores.get(node, 0)) for node in nodes_list]
+                        nodes_with_scores.sort(key=lambda x: x[1], reverse=True)
+                        nodes_list = [node for node, _ in nodes_with_scores[:max_repos]]
+                
+                if use_real_github_data and use_web_scraping:
+                    st.info("Using web scraping to fetch GitHub data")
+                    github_builder = GitHubDataBuilder(token=github_token)  # Token optional for scraping
+                    github_metrics = github_builder.extract_github_metrics_batch(nodes_list, use_cache=True, use_scraping=True)
+                elif use_real_github_data and github_token:
                     st.info("Using real GitHub API data (with token)")
                     github_builder = GitHubDataBuilder(token=github_token)
                     github_metrics = github_builder.extract_github_metrics_batch(nodes_list, use_cache=True)
@@ -435,11 +471,17 @@ with tab4:
         - Model Accuracy: Cross-validated metrics shown in Model & Analysis tab
         - Memory Usage: Efficient sparse matrix implementations for large graphs
         
+        **Data Collection Methods**
+        
+        - **Simulated Data**: Generated sample data for testing without external dependencies
+        - **GitHub API**: Direct API access with higher accuracy (requires token)
+        - **Web Scraping**: HTML parsing of GitHub pages for token-free data collection
+        
         **Next Steps for Production Use**
         
-        1. Integration with live GitHub API for real-time metrics
+        1. Enhanced GitHub data collection with combined API and scraping approaches
         2. Implementation of user feedback loop for model refinement
-        3. Enhanced visualization options for deeper dependency analysis
+        3. Expanded dependency discovery through package manifest analysis
         """)
         st.markdown("</div>", unsafe_allow_html=True)
     else:

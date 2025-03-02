@@ -3,10 +3,12 @@ import requests
 import pandas as pd
 import time
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 import json
 from urllib.parse import urlparse, quote
 import re
+from bs4 import BeautifulSoup
+import random
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -384,27 +386,191 @@ class GitHubDataBuilder:
         
         return metrics
     
-    def extract_github_metrics_batch(self, repo_names: List[str], use_cache: bool = True) -> Dict[str, Dict[str, float]]:
+    def scrape_github_repo_data(self, repo_name: str, use_cache: bool = True) -> Dict[str, Any]:
+        """
+        Scrape GitHub repository data using web scraping as an alternative to the API.
+        
+        Args:
+            repo_name: Repository name in 'owner/repo' format
+            use_cache: Whether to use cached responses
+            
+        Returns:
+            Dictionary of repository data
+        """
+        normalized_name = self.normalize_repo_name(repo_name)
+        cache_path = self._get_cache_path(f"scrape_{normalized_name}")
+        
+        # Check cache first if enabled
+        if use_cache and os.path.exists(cache_path):
+            try:
+                with open(cache_path, 'r') as f:
+                    data = json.load(f)
+                    logger.debug(f"Using cached scraped data for {repo_name}")
+                    return data
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Error reading cache for scraped data {repo_name}: {e}")
+        
+        # Base GitHub URL
+        github_url = f"https://github.com/{normalized_name}"
+        logger.info(f"Scraping GitHub repository: {github_url}")
+        
+        try:
+            # Add a randomized user agent to avoid being blocked
+            user_agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:90.0) Gecko/20100101 Firefox/90.0'
+            ]
+            headers = {
+                'User-Agent': random.choice(user_agents),
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5'
+            }
+            
+            # Make the request to the main repo page
+            response = requests.get(github_url, headers=headers, timeout=10)
+            response.raise_for_status()  # Raise exception for 4XX/5XX responses
+            
+            # Parse HTML with BeautifulSoup
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract data points
+            data = {
+                "repo_name": normalized_name,
+                "scraped_data": True,
+                "url": github_url
+            }
+            
+            # Extract stars, forks, watchers, etc.
+            try:
+                # Look for the social count elements
+                social_counts = soup.select('a.social-count')
+                
+                # Extract stars and forks
+                for count_elem in social_counts:
+                    count_text = count_elem.get_text(strip=True).replace(',', '')
+                    if 'stargazers' in count_elem.get('href', ''):
+                        data['stars'] = int(count_text) if count_text.isdigit() else 0
+                    elif 'network/members' in count_elem.get('href', ''):
+                        data['forks'] = int(count_text) if count_text.isdigit() else 0
+                    elif 'watchers' in count_elem.get('href', ''):
+                        data['watchers'] = int(count_text) if count_text.isdigit() else 0
+            except Exception as e:
+                logger.warning(f"Error extracting social counts for {repo_name}: {e}")
+                
+            # Try to extract repository description
+            try:
+                description_elem = soup.select_one('p.f4.my-3')
+                if description_elem:
+                    data['description'] = description_elem.get_text(strip=True)
+            except Exception as e:
+                logger.warning(f"Error extracting description for {repo_name}: {e}")
+                
+            # Extract language information
+            try:
+                language_elem = soup.select_one('span[itemprop="programmingLanguage"]')
+                if language_elem:
+                    data['language'] = language_elem.get_text(strip=True)
+            except Exception as e:
+                logger.warning(f"Error extracting language for {repo_name}: {e}")
+                
+            # Extract last update time
+            try:
+                update_elem = soup.select_one('relative-time')
+                if update_elem and update_elem.has_attr('datetime'):
+                    data['updated_at'] = update_elem['datetime']
+            except Exception as e:
+                logger.warning(f"Error extracting update time for {repo_name}: {e}")
+            
+            # Cache the data
+            with open(cache_path, 'w') as f:
+                json.dump(data, f)
+                
+            return data
+            
+        except Exception as e:
+            logger.error(f"Error scraping GitHub repository {github_url}: {e}")
+            return {"repo_name": normalized_name, "error": str(e)}
+    
+    def extract_repo_metrics_from_scrape(self, repo_name: str, use_cache: bool = True) -> Dict[str, float]:
+        """
+        Extract metrics from scraped GitHub repository data.
+        
+        Args:
+            repo_name: Repository name in 'owner/repo' format
+            use_cache: Whether to use cached responses
+            
+        Returns:
+            Dictionary of repository metrics
+        """
+        scraped_data = self.scrape_github_repo_data(repo_name, use_cache)
+        
+        if not scraped_data or "error" in scraped_data:
+            logger.warning(f"No scraped data found for repository: {repo_name}")
+            return {}
+        
+        # Extract metrics from scraped data
+        metrics = {
+            "stars": scraped_data.get("stars", 0),
+            "forks": scraped_data.get("forks", 0),
+            "watchers": scraped_data.get("watchers", 0)
+        }
+        
+        # Calculate age if possible
+        if "updated_at" in scraped_data:
+            try:
+                metrics["last_updated_days"] = (pd.Timestamp.now() - pd.Timestamp(scraped_data["updated_at"])).days
+            except:
+                metrics["last_updated_days"] = 0
+        
+        # Generate some derived metrics based on what we have
+        # Note: These are less accurate than the API metrics but provide something to work with
+        if metrics["stars"] > 0:
+            # Estimate number of contributors based on stars and forks
+            estimated_contributors = max(1, int(metrics["stars"] * 0.01 + metrics["forks"] * 0.1))
+            metrics["contributors"] = estimated_contributors
+            
+            # Estimate commit activity based on stars
+            metrics["commit_frequency"] = metrics["stars"] * 0.05
+            
+            # Estimated contributor engagement
+            metrics["contributor_engagement"] = 50  # Default middle value
+            
+            # Activity score (simplified)
+            recency_factor = max(1, 30 / (metrics["last_updated_days"] + 1)) if "last_updated_days" in metrics else 1
+            metrics["activity_score"] = (metrics["stars"] * 0.5 + metrics["forks"] * 5) * recency_factor / 100
+        
+        return metrics
+
+    def extract_github_metrics_batch(self, repo_names: List[str], use_cache: bool = True, use_scraping: bool = False) -> Dict[str, Dict[str, float]]:
         """
         Extract GitHub metrics for a batch of repositories.
         
         Args:
             repo_names: List of repository names
             use_cache: Whether to use cached responses
+            use_scraping: Whether to use web scraping instead of API
             
         Returns:
             Dictionary mapping repository names to metrics dictionaries
         """
-        logger.info(f"Extracting GitHub metrics for {len(repo_names)} repositories")
+        logger.info(f"Extracting GitHub metrics for {len(repo_names)} repositories using {'web scraping' if use_scraping else 'API'}")
         
         metrics = {}
         for i, repo_name in enumerate(repo_names):
             logger.info(f"Processing repository {i+1}/{len(repo_names)}: {repo_name}")
-            metrics[repo_name] = self.extract_repo_metrics(repo_name, use_cache)
             
-            # Add a small delay to be nice to the GitHub API
+            if use_scraping:
+                # Use web scraping to get metrics
+                metrics[repo_name] = self.extract_repo_metrics_from_scrape(repo_name, use_cache)
+            else:
+                # Use GitHub API to get metrics
+                metrics[repo_name] = self.extract_repo_metrics(repo_name, use_cache)
+            
+            # Add a small delay to be nice to the GitHub/website
             if i < len(repo_names) - 1:
-                time.sleep(0.2)
+                time.sleep(0.5 if use_scraping else 0.2)  # Longer delay for web scraping
         
         return metrics
     
