@@ -277,17 +277,251 @@ class BlockchainManager:
             return True
         return False
     
+    def _create_default_cardano_config(self) -> BlockchainConfig:
+        """
+        Create a default Cardano blockchain configuration.
+        
+        Returns:
+            BlockchainConfig for Cardano
+        """
+        return BlockchainConfig(
+            name="cardano",
+            display_name="Cardano",
+            description="Blockchain platform for changemakers, innovators, and visionaries",
+            root_repository="input-output-hk/cardano-node",
+            seed_repositories=[
+                "input-output-hk/cardano-wallet",
+                "input-output-hk/cardano-ledger",
+                "input-output-hk/plutus",
+                "input-output-hk/ouroboros-network",
+                "input-output-hk/cardano-db-sync",
+                "input-output-hk/cardano-addresses",
+                "IntersectMBO/cardano-cli",
+                "cardano-foundation/CIPs",
+                "cardano-foundation/cardano-token-registry",
+                "Emurgo/cardano-serialization-lib"
+            ],
+            logo_url="https://cardano.org/static/cardano.a1942c9c.svg",
+            primary_language="Haskell",
+            github_org="input-output-hk",
+            website="https://cardano.org",
+            documentation="https://docs.cardano.org",
+            year_founded=2015,
+            custom_parameters={
+                "consensus_mechanism": "Ouroboros Proof of Stake",
+                "average_block_time": 20,  # in seconds
+                "has_smart_contracts": True
+            }
+        )
+    
+    def _create_default_avalanche_config(self) -> BlockchainConfig:
+        """
+        Create a default Avalanche blockchain configuration.
+        
+        Returns:
+            BlockchainConfig for Avalanche
+        """
+        return BlockchainConfig(
+            name="avalanche",
+            display_name="Avalanche",
+            description="Blazingly fast, low cost, and eco-friendly platform for launching decentralized applications",
+            root_repository="ava-labs/avalanchego",
+            seed_repositories=[
+                "ava-labs/coreth",
+                "ava-labs/subnet-evm",
+                "ava-labs/ava-docs",
+                "ava-labs/avalanche-wallet",
+                "ava-labs/avalanche-network-runner",
+                "ava-labs/avalanche-faucet",
+                "ava-labs/avalanchejs",
+                "ava-labs/avalanche-bridge",
+                "ava-labs/avalanche-plugins",
+                "ava-labs/avalanche-cli"
+            ],
+            logo_url="https://assets-global.website-files.com/6059b554e81c705f9dd2dd32/60ec6a370ae6d248fcc5e943_AVA-Red.svg",
+            primary_language="Go",
+            github_org="ava-labs",
+            website="https://avax.network",
+            documentation="https://docs.avax.network",
+            year_founded=2020,
+            custom_parameters={
+                "consensus_mechanism": "Avalanche Consensus",
+                "average_block_time": 2,  # in seconds
+                "has_smart_contracts": True
+            }
+        )
+    
+    def _create_default_near_config(self) -> BlockchainConfig:
+        """
+        Create a default NEAR Protocol blockchain configuration.
+        
+        Returns:
+            BlockchainConfig for NEAR
+        """
+        return BlockchainConfig(
+            name="near",
+            display_name="NEAR Protocol",
+            description="A developer-friendly, sharded, proof-of-stake public blockchain",
+            root_repository="near/nearcore",
+            seed_repositories=[
+                "near/near-sdk-rs",
+                "near/near-sdk-js",
+                "near/near-api-js",
+                "near/near-cli",
+                "near/wallet-selector",
+                "near/near-wallet",
+                "near/docs",
+                "near/borsh-js",
+                "near/near-indexer-for-explorer",
+                "near/bos-loader"
+            ],
+            logo_url="https://near.org/wp-content/uploads/2021/09/logo-white.svg",
+            primary_language="Rust",
+            github_org="near",
+            website="https://near.org",
+            documentation="https://docs.near.org",
+            year_founded=2018,
+            custom_parameters={
+                "consensus_mechanism": "Nightshade Proof of Stake",
+                "average_block_time": 1,  # in seconds
+                "has_smart_contracts": True
+            }
+        )
+    
+    def _create_default_cosmos_config(self) -> BlockchainConfig:
+        """
+        Create a default Cosmos blockchain configuration.
+        
+        Returns:
+            BlockchainConfig for Cosmos
+        """
+        return BlockchainConfig(
+            name="cosmos",
+            display_name="Cosmos",
+            description="An ecosystem of interoperable blockchains that scale and interoperate with each other",
+            root_repository="cosmos/cosmos-sdk",
+            seed_repositories=[
+                "cosmos/gaia",
+                "cosmos/ibc-go",
+                "cosmos/relayer",
+                "cosmos/cosmjs",
+                "cosmos/ibc",
+                "cosmos/cosmos-proto",
+                "cosmos/chain-registry",
+                "cosmos/interchain-security",
+                "cosmos/governance",
+                "cosmos/cosmos.github.io"
+            ],
+            logo_url="https://v1.cosmos.network/img/logo.svg",
+            primary_language="Go",
+            github_org="cosmos",
+            website="https://cosmos.network",
+            documentation="https://docs.cosmos.network",
+            year_founded=2016,
+            custom_parameters={
+                "consensus_mechanism": "Tendermint Proof of Stake",
+                "average_block_time": 6.5,  # in seconds
+                "has_smart_contracts": True
+            }
+        )
+    
+    def _create_default_algorand_config(self) -> BlockchainConfig:
+        """
+        Create a default Algorand blockchain configuration.
+        
+        Returns:
+            BlockchainConfig for Algorand
+        """
+        return BlockchainConfig(
+            name="algorand",
+            display_name="Algorand",
+            description="A public blockchain that achieves decentralization, scalability, and security without compromises",
+            root_repository="algorand/go-algorand",
+            seed_repositories=[
+                "algorand/js-algorand-sdk",
+                "algorand/py-algorand-sdk",
+                "algorand/algorand-sdk",
+                "algorand/indexer",
+                "algorand/docs",
+                "algorand/algorand-walletconnect-example",
+                "algorand/go-algorand-sdk",
+                "algorand/mese-wallet",
+                "algorand/smart-contracts",
+                "algorand/proposals"
+            ],
+            logo_url="https://algorand.com/static/img/og.png",
+            primary_language="Go",
+            github_org="algorand",
+            website="https://algorand.com",
+            documentation="https://developer.algorand.org/docs",
+            year_founded=2017,
+            custom_parameters={
+                "consensus_mechanism": "Pure Proof of Stake",
+                "average_block_time": 4.5,  # in seconds
+                "has_smart_contracts": True
+            }
+        )
+    
+    def _create_default_tezos_config(self) -> BlockchainConfig:
+        """
+        Create a default Tezos blockchain configuration.
+        
+        Returns:
+            BlockchainConfig for Tezos
+        """
+        return BlockchainConfig(
+            name="tezos",
+            display_name="Tezos",
+            description="Self-amending blockchain with formal verification for smart contract security",
+            root_repository="tezos/tezos",
+            seed_repositories=[
+                "oxheadalpha/smart-contracts",
+                "Marigold-Dev/tezos-nix",
+                "trilitech/jstz",
+                "tezos-commons/tzkt-api",
+                "madfish-solutions/templewallet-extension",
+                "ecadlabs/taquito",
+                "marigold-dev/tzstamp",
+                "baking-bad/netezos",
+                "tezos-commons/tezos-core-tools",
+                "SimplestakingTezosWallet/tezos-wallet-client"
+            ],
+            logo_url="https://tezos.com/img/logo-tezos-blue.svg",
+            primary_language="OCaml",
+            github_org="tezos",
+            website="https://tezos.com",
+            documentation="https://tezos.gitlab.io/active/index.html",
+            year_founded=2014,
+            custom_parameters={
+                "consensus_mechanism": "Liquid Proof of Stake",
+                "average_block_time": 30,  # in seconds
+                "has_smart_contracts": True
+            }
+        )
+        
     def add_default_blockchains(self) -> None:
         """
-        Add default blockchain configurations (Ethereum, Solana, Polkadot).
+        Add default blockchain configurations.
         """
         ethereum_config = self._create_default_ethereum_config()
         solana_config = self._create_default_solana_config()
         polkadot_config = self._create_default_polkadot_config()
+        cardano_config = self._create_default_cardano_config()
+        avalanche_config = self._create_default_avalanche_config()
+        near_config = self._create_default_near_config()
+        cosmos_config = self._create_default_cosmos_config()
+        algorand_config = self._create_default_algorand_config()
+        tezos_config = self._create_default_tezos_config()
         
         self.add_blockchain(ethereum_config)
         self.add_blockchain(solana_config)
         self.add_blockchain(polkadot_config)
+        self.add_blockchain(cardano_config)
+        self.add_blockchain(avalanche_config)
+        self.add_blockchain(near_config)
+        self.add_blockchain(cosmos_config)
+        self.add_blockchain(algorand_config)
+        self.add_blockchain(tezos_config)
     
     def export_blockchain_configs_to_dataframe(self) -> pd.DataFrame:
         """
@@ -497,7 +731,8 @@ class EnhancedBlockchainAdapterFactory:
         adapter_map = {
             "ethereum": EthereumAdapter,
             "solana": SolanaAdapter,
-            "polkadot": PolkadotAdapter
+            "polkadot": PolkadotAdapter,
+            # Default to base adapter for other blockchains for now
         }
         
         # Get the adapter class or use the base class as fallback
