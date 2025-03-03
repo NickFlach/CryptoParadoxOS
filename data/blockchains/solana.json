@@ -1,0 +1,29 @@
+{
+  "name": "solana",
+  "display_name": "Solana",
+  "description": "High-performance blockchain supporting builders around the world",
+  "root_repository": "solana-labs/solana",
+  "seed_repositories": [
+    "solana-labs/solana-program-library",
+    "solana-labs/solana-web3.js",
+    "solana-labs/wallet-adapter",
+    "solana-labs/anchor",
+    "solana-labs/token-list",
+    "solana-labs/ecosystem",
+    "solana-labs/governance-ui",
+    "solana-labs/example-helloworld",
+    "solana-labs/dapp-scaffold",
+    "solana-labs/solana-pay"
+  ],
+  "logo_url": "https://solana.com/src/images/branding/solanaLogoMark.svg",
+  "primary_language": "Rust",
+  "github_org": "solana-labs",
+  "website": "https://solana.com",
+  "documentation": "https://docs.solana.com",
+  "year_founded": 2017,
+  "custom_parameters": {
+    "consensus_mechanism": "Proof of History + Proof of Stake",
+    "average_block_time": 0.4,
+    "has_smart_contracts": true
+  }
+}

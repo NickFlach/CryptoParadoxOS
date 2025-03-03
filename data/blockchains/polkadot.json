@@ -1,0 +1,29 @@
+{
+  "name": "polkadot",
+  "display_name": "Polkadot",
+  "description": "A scalable, interoperable & secure network protocol for the next web",
+  "root_repository": "paritytech/polkadot",
+  "seed_repositories": [
+    "paritytech/substrate",
+    "paritytech/cumulus",
+    "paritytech/parity-bridges-common",
+    "paritytech/ink",
+    "paritytech/subxt",
+    "paritytech/polkadot-sdk",
+    "paritytech/parity-signer",
+    "paritytech/txwrapper",
+    "paritytech/frontier",
+    "paritytech/smoldot"
+  ],
+  "logo_url": "https://polkadot.network/assets/img/logo-polkadot.svg",
+  "primary_language": "Rust",
+  "github_org": "paritytech",
+  "website": "https://polkadot.network",
+  "documentation": "https://wiki.polkadot.network",
+  "year_founded": 2016,
+  "custom_parameters": {
+    "consensus_mechanism": "NPoS (Nominated Proof of Stake)",
+    "average_block_time": 6,
+    "has_smart_contracts": true
+  }
+}
