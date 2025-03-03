@@ -56,13 +56,87 @@ class GraphConvLayer(nn.Module):
         # Apply non-linear activation
         return F.relu(output)
 
+
+class GraphAttentionLayer(nn.Module):
+    """
+    Graph Attention Layer (GAT).
+    This layer applies attention mechanisms to weight the importance
+    of neighboring nodes during message passing.
+    """
+    
+    def __init__(self, in_features: int, out_features: int, dropout: float = 0.2, alpha: float = 0.2):
+        """
+        Initialize a graph attention layer.
+        
+        Args:
+            in_features: Number of input features
+            out_features: Number of output features
+            dropout: Dropout probability
+            alpha: LeakyReLU slope
+        """
+        super(GraphAttentionLayer, self).__init__()
+        self.dropout = dropout
+        self.in_features = in_features
+        self.out_features = out_features
+        self.alpha = alpha
+        
+        # Transformation matrix W
+        self.W = nn.Linear(in_features, out_features, bias=False)
+        # Attention mechanism
+        self.a = nn.Linear(2 * out_features, 1, bias=False)
+        
+        # Initialize with Glorot (Xavier) method
+        nn.init.xavier_uniform_(self.W.weight)
+        nn.init.xavier_uniform_(self.a.weight)
+        
+        # Dropout layer
+        self.dropout_layer = nn.Dropout(dropout)
+        # LeakyReLU activation
+        self.leakyrelu = nn.LeakyReLU(self.alpha)
+    
+    def forward(self, x: torch.Tensor, adj: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the GAT layer.
+        
+        Args:
+            x: Node features tensor of shape [num_nodes, in_features]
+            adj: Adjacency matrix tensor of shape [num_nodes, num_nodes]
+            
+        Returns:
+            Updated node features of shape [num_nodes, out_features]
+        """
+        # Apply linear transformation to get "embeddings"
+        h = self.W(x)  # [N, out_features]
+        N = h.size()[0]
+        
+        # Prepare attention mechanism inputs
+        a_input = torch.cat([h.repeat(1, N).view(N * N, -1), h.repeat(N, 1)], dim=1)
+        a_input = a_input.view(N, N, 2 * self.out_features)
+        
+        # Calculate attention coefficients
+        e = self.leakyrelu(self.a(a_input).squeeze(2))
+        
+        # Mask attention coefficients using adjacency matrix
+        zero_vec = -9e15 * torch.ones_like(e)
+        attention = torch.where(adj > 0, e, zero_vec)
+        
+        # Apply softmax to get normalized attention coefficients
+        attention = F.softmax(attention, dim=1)
+        attention = self.dropout_layer(attention)
+        
+        # Apply attention coefficients to features
+        h_prime = torch.matmul(attention, h)
+        
+        return F.elu(h_prime)
+
 class GNN(nn.Module):
     """
     Graph Neural Network for node importance prediction.
     
     This GNN model takes a graph structure and node features as input,
     and predicts importance scores for each node based on both the
-    graph structure and node attributes.
+    graph structure and node attributes. It uses a hybrid architecture
+    with both standard GCN layers and attention-based GAT layers.
     """
     
     def __init__(
@@ -70,7 +144,9 @@ class GNN(nn.Module):
         feature_dim: int, 
         hidden_dim: int = 64, 
         output_dim: int = 32, 
-        num_layers: int = 2
+        num_layers: int = 2,
+        use_attention: bool = True,
+        dropout: float = 0.2
     ):
         """
         Initialize the GNN model.
@@ -80,25 +156,38 @@ class GNN(nn.Module):
             hidden_dim: Dimension of hidden layers
             output_dim: Dimension of output embeddings
             num_layers: Number of GNN layers
+            use_attention: Whether to use attention mechanism in some layers
+            dropout: Dropout rate for attention layers
         """
         super(GNN, self).__init__()
         
-        # First layer: input features to hidden
+        self.use_attention = use_attention
+        self.dropout = dropout
+        
+        # First layer: input features to hidden (always use standard GCN for stability)
         self.layers = nn.ModuleList()
         self.layers.append(GraphConvLayer(feature_dim, hidden_dim))
         
-        # Hidden layers
-        for _ in range(num_layers - 2):
-            self.layers.append(GraphConvLayer(hidden_dim, hidden_dim))
+        # Hidden layers - alternate between GCN and GAT if attention is enabled
+        for i in range(num_layers - 2):
+            if use_attention and i % 2 == 1:  # Use attention in odd-numbered layers
+                self.layers.append(GraphAttentionLayer(hidden_dim, hidden_dim, dropout=dropout))
+            else:
+                self.layers.append(GraphConvLayer(hidden_dim, hidden_dim))
         
-        # Last layer: hidden to output
+        # Last layer: hidden to output (use attention for final layer if enabled)
         if num_layers > 1:
-            self.layers.append(GraphConvLayer(hidden_dim, output_dim))
+            if use_attention:
+                self.layers.append(GraphAttentionLayer(hidden_dim, output_dim, dropout=dropout))
+            else:
+                self.layers.append(GraphConvLayer(hidden_dim, output_dim))
             
-        # Prediction head for importance score
+        # Prediction head for importance score with dropout for regularization
+        self.dropout_layer = nn.Dropout(dropout)
         self.predictor = nn.Sequential(
             nn.Linear(output_dim, 16),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(16, 1)
         )
         
@@ -200,6 +289,12 @@ def prepare_graph_data(
     if len(feature_names) == 0:
         features = torch.eye(len(nodes))
     
+    # Apply feature normalization/scaling
+    for j in range(features.shape[1]):
+        col = features[:, j]
+        if col.max() > col.min():  # Only scale if there's variation in values
+            features[:, j] = (col - col.min()) / (col.max() - col.min() + 1e-8)  # Add epsilon to avoid division by zero
+    
     logger.info(f"Prepared data: {len(nodes)} nodes, {features.shape[1]} features")
     return adj, features, idx_to_node, node_to_idx
 
@@ -209,7 +304,12 @@ def train_gnn(
     reference_scores: Optional[torch.Tensor] = None,
     epochs: int = 200,
     learning_rate: float = 0.01,
-    weight_decay: float = 5e-4
+    weight_decay: float = 5e-4,
+    use_attention: bool = True,
+    hidden_dim: int = 64,
+    output_dim: int = 32,
+    num_layers: int = 2,
+    dropout: float = 0.2
 ) -> GNN:
     """
     Train a GNN model on the graph.
@@ -221,12 +321,24 @@ def train_gnn(
         epochs: Number of training epochs
         learning_rate: Learning rate for optimizer
         weight_decay: Weight decay for optimizer
+        use_attention: Whether to use attention mechanism
+        hidden_dim: Size of hidden dimension
+        output_dim: Size of output dimension
+        num_layers: Number of GNN layers
+        dropout: Dropout rate for regularization
         
     Returns:
         Trained GNN model
     """
-    # Create model
-    model = GNN(features.shape[1], hidden_dim=64, output_dim=32, num_layers=2)
+    # Create model with specified architecture
+    model = GNN(
+        features.shape[1], 
+        hidden_dim=hidden_dim, 
+        output_dim=output_dim, 
+        num_layers=num_layers,
+        use_attention=use_attention,
+        dropout=dropout
+    )
     
     # Use either supervised or self-supervised training
     if reference_scores is not None:
@@ -356,10 +468,109 @@ def get_node_embeddings(
     logger.info(f"Generated embeddings with dimension {embeddings.shape[1]} for {len(node_embeddings)} nodes")
     return node_embeddings
 
+def optimize_gnn_parameters(
+    G: nx.DiGraph,
+    github_features: Dict[str, Dict[str, float]],
+    reference_scores: Optional[Dict[str, float]] = None
+) -> Dict[str, Any]:
+    """
+    Optimize GNN parameters for better performance on the given graph.
+    
+    Args:
+        G: NetworkX graph
+        github_features: Dictionary mapping nodes to feature dictionaries
+        reference_scores: Optional reference scores for supervised training
+        
+    Returns:
+        Dictionary of optimal parameters
+    """
+    logger.info("Optimizing GNN parameters...")
+    
+    # Prepare data
+    adj, features, idx_to_node, node_to_idx = prepare_graph_data(G, github_features)
+    
+    # Prepare reference scores if provided
+    ref_tensor = None
+    if reference_scores is not None:
+        ref_tensor = torch.zeros(len(node_to_idx))
+        for node, score in reference_scores.items():
+            if node in node_to_idx:
+                ref_tensor[node_to_idx[node]] = score
+    
+    # Parameter configurations to try
+    param_configs = [
+        {"use_attention": True, "num_layers": 2, "hidden_dim": 64, "dropout": 0.2},
+        {"use_attention": False, "num_layers": 2, "hidden_dim": 64, "dropout": 0.1},
+        {"use_attention": True, "num_layers": 3, "hidden_dim": 128, "dropout": 0.3},
+    ]
+    
+    best_loss = float('inf')
+    best_params = param_configs[0]
+    
+    # Try different parameter configurations
+    for params in param_configs:
+        logger.info(f"Trying parameters: {params}")
+        try:
+            model = GNN(
+                features.shape[1], 
+                hidden_dim=params["hidden_dim"], 
+                output_dim=32, 
+                num_layers=params["num_layers"],
+                use_attention=params["use_attention"],
+                dropout=params["dropout"]
+            )
+            
+            # Training configurations
+            optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
+            epochs = 50  # Reduced for optimization search
+            
+            # Simple training loop
+            model.train()
+            for epoch in range(epochs):
+                optimizer.zero_grad()
+                
+                if ref_tensor is not None:
+                    # Supervised training
+                    _, scores = model(features, adj)
+                    loss = F.mse_loss(scores, ref_tensor)
+                else:
+                    # Self-supervised training
+                    embeddings, _ = model(features, adj)
+                    pred_adj = torch.mm(embeddings, embeddings.t())
+                    loss = F.binary_cross_entropy_with_logits(pred_adj, adj)
+                
+                loss.backward()
+                optimizer.step()
+            
+            # Evaluate final loss
+            model.eval()
+            with torch.no_grad():
+                if ref_tensor is not None:
+                    _, scores = model(features, adj)
+                    final_loss = F.mse_loss(scores, ref_tensor).item()
+                else:
+                    embeddings, _ = model(features, adj)
+                    pred_adj = torch.mm(embeddings, embeddings.t())
+                    final_loss = F.binary_cross_entropy_with_logits(pred_adj, adj).item()
+            
+            logger.info(f"Config {params} achieved loss: {final_loss:.4f}")
+            
+            if final_loss < best_loss:
+                best_loss = final_loss
+                best_params = params
+                
+        except Exception as e:
+            logger.warning(f"Failed to train with parameters {params}: {str(e)}")
+    
+    logger.info(f"Optimal parameters: {best_params}, Loss: {best_loss:.4f}")
+    return best_params
+
+
 def apply_gnn_funding_allocation(
     G: nx.DiGraph, 
     github_features: Dict[str, Dict[str, float]],
-    total_funding: float = 1.0
+    total_funding: float = 1.0,
+    optimize_params: bool = True
 ) -> Dict[str, float]:
     """
     Apply GNN-based funding allocation.
@@ -368,12 +579,47 @@ def apply_gnn_funding_allocation(
         G: NetworkX graph
         github_features: Dictionary mapping nodes to feature dictionaries
         total_funding: Total funding amount to allocate
+        optimize_params: Whether to automatically optimize GNN parameters
         
     Returns:
         Dictionary mapping node names to funding amounts
     """
-    # Get importance scores from GNN
-    importance_scores = gnn_node_importance(G, github_features)
+    # Optionally optimize parameters
+    if optimize_params and len(G.nodes()) < 500:  # Only optimize for reasonably sized graphs
+        logger.info("Optimizing GNN parameters for funding allocation...")
+        # Use PageRank as reference for supervised optimization
+        pagerank_scores = nx.pagerank(G, alpha=0.85)
+        optimal_params = optimize_gnn_parameters(G, github_features, pagerank_scores)
+        
+        # Get importance scores from GNN with optimal parameters
+        adj, features, idx_to_node, node_to_idx = prepare_graph_data(G, github_features)
+        model = train_gnn(
+            adj, 
+            features, 
+            hidden_dim=optimal_params.get("hidden_dim", 64),
+            num_layers=optimal_params.get("num_layers", 2),
+            use_attention=optimal_params.get("use_attention", True),
+            dropout=optimal_params.get("dropout", 0.2)
+        )
+        
+        with torch.no_grad():
+            _, scores = model(features, adj)
+            scores = torch.sigmoid(scores).numpy()
+        
+        # Map scores to nodes
+        importance_scores = {}
+        for idx, score in enumerate(scores):
+            node = idx_to_node[idx]
+            importance_scores[node] = float(score)
+        
+        # Normalize to sum to 1
+        total = sum(importance_scores.values())
+        if total > 0:
+            for node in importance_scores:
+                importance_scores[node] /= total
+    else:
+        # Use standard approach for large graphs or when optimization is disabled
+        importance_scores = gnn_node_importance(G, github_features)
     
     # Allocate funding based on importance scores
     funding_allocation = {}
@@ -413,6 +659,94 @@ def compare_allocation_methods(
     logger.info(f"Correlation between PageRank and GNN scores: {correlation:.4f}")
     
     return comparison
+
+
+def identify_unsung_heroes(
+    G: nx.DiGraph,
+    github_features: Dict[str, Dict[str, float]],
+    pagerank_scores: Dict[str, float],
+    threshold_percentile: float = 90
+) -> List[Dict[str, Any]]:
+    """
+    Identify 'unsung hero' repositories that are ranked much higher by GNN than by PageRank.
+    These are potentially undervalued projects that contribute significantly to the ecosystem
+    but don't receive proportional recognition.
+    
+    Args:
+        G: NetworkX graph
+        github_features: Dictionary mapping nodes to feature dictionaries
+        pagerank_scores: PageRank scores for comparison
+        threshold_percentile: Percentile threshold for difference in rankings
+        
+    Returns:
+        List of dictionaries with information about unsung hero repositories
+    """
+    logger.info(f"Identifying unsung hero repositories using GNN analysis...")
+    
+    # Get GNN scores
+    gnn_scores = gnn_node_importance(G, github_features)
+    
+    # Create comparison DataFrame
+    comparison = pd.DataFrame({
+        "repository": list(G.nodes()),
+        "pagerank_score": [pagerank_scores.get(node, 0) for node in G.nodes()],
+        "pagerank_rank": 0,  # Will be filled in
+        "gnn_score": [gnn_scores.get(node, 0) for node in G.nodes()],
+        "gnn_rank": 0,  # Will be filled in
+    })
+    
+    # Compute ranks
+    comparison['pagerank_rank'] = comparison['pagerank_score'].rank(ascending=False)
+    comparison['gnn_rank'] = comparison['gnn_score'].rank(ascending=False)
+    
+    # Calculate rank differences (positive means GNN ranks it higher than PageRank)
+    comparison['rank_difference'] = comparison['pagerank_rank'] - comparison['gnn_rank']
+    
+    # Calculate the normalized score difference
+    # First normalize each score column to [0, 1] range 
+    if len(comparison) > 0:
+        comparison['pagerank_normalized'] = (comparison['pagerank_score'] - comparison['pagerank_score'].min()) / \
+                                          (comparison['pagerank_score'].max() - comparison['pagerank_score'].min() + 1e-8)
+        comparison['gnn_normalized'] = (comparison['gnn_score'] - comparison['gnn_score'].min()) / \
+                                     (comparison['gnn_score'].max() - comparison['gnn_score'].min() + 1e-8)
+        
+        # Calculate score difference (positive means GNN values it more than PageRank)
+        comparison['score_difference'] = comparison['gnn_normalized'] - comparison['pagerank_normalized']
+    
+    # Identify unsung heroes - repositories with high positive rank difference
+    threshold = np.percentile(comparison['rank_difference'], threshold_percentile)
+    unsung_heroes = comparison[comparison['rank_difference'] > threshold].sort_values('rank_difference', ascending=False)
+    
+    # Prepare detailed results
+    results = []
+    for _, row in unsung_heroes.iterrows():
+        repo = row['repository']
+        # Get GitHub metrics if available
+        metrics = {}
+        if repo in github_features:
+            metrics = github_features[repo]
+        
+        # Get graph metrics
+        in_degree = G.in_degree(repo) if repo in G else 0
+        out_degree = G.out_degree(repo) if repo in G else 0
+        
+        # Create result entry
+        result = {
+            "repository": repo,
+            "pagerank_score": row['pagerank_score'],
+            "pagerank_rank": int(row['pagerank_rank']),
+            "gnn_score": row['gnn_score'],
+            "gnn_rank": int(row['gnn_rank']),
+            "rank_difference": int(row['rank_difference']),
+            "score_difference": float(row['score_difference']),
+            "in_degree": in_degree,
+            "out_degree": out_degree,
+            "github_metrics": metrics
+        }
+        results.append(result)
+    
+    logger.info(f"Identified {len(results)} unsung hero repositories")
+    return results
 
 if __name__ == "__main__":
     # Example usage
