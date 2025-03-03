@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -133,18 +134,14 @@ st.markdown("""
 
 # Get blockchain list for selection
 blockchain_options = blockchain_manager.get_blockchain_list()
-blockchain_ids = [b_id for b_id, _ in blockchain_options]
-blockchain_names = [name for _, name in blockchain_options]
 
 # Default to Ethereum if available, otherwise first blockchain
 default_idx = blockchain_ids.index('ethereum') if 'ethereum' in blockchain_ids else 0
 
 # Initialize session state for selected blockchain if not set
 if 'selected_blockchain_id' not in st.session_state:
-    st.session_state['selected_blockchain_id'] = blockchain_ids[default_idx]
 
 # Get the selected blockchain config
-selected_blockchain_id = st.session_state['selected_blockchain_id']
 selected_blockchain = blockchain_manager.get_blockchain(selected_blockchain_id)
 
 # Main header
@@ -152,20 +149,15 @@ st.markdown("<h1 class='main-header'>Crypto_ParadoxOS</h1>", unsafe_allow_html=T
 st.markdown("<p class='sub-header'>AI-driven funding allocation for blockchain open-source ecosystems powered by Paradoxical OS Innovation Strategy</p>", unsafe_allow_html=True)
 
 # Blockchain selector in main UI
-col1, col2, col3 = st.columns([2, 4, 2])
 with col2:
     st.markdown("<div class='blockchain-selector'>", unsafe_allow_html=True)
     selected_index = st.selectbox(
         "Select Blockchain Ecosystem",
         options=range(len(blockchain_options)),
-        format_func=lambda i: blockchain_names[i],
         index=blockchain_ids.index(selected_blockchain_id)
     )
     
     # Update the selected blockchain when changed
-    if blockchain_ids[selected_index] != selected_blockchain_id:
-        st.session_state['selected_blockchain_id'] = blockchain_ids[selected_index]
-        selected_blockchain_id = blockchain_ids[selected_index]
         selected_blockchain = blockchain_manager.get_blockchain(selected_blockchain_id)
         st.rerun()
     
@@ -185,14 +177,12 @@ with st.sidebar:
     if selected_blockchain.year_founded:
         st.markdown(f"**Founded:** {selected_blockchain.year_founded}")
     if selected_blockchain.website:
-        st.markdown(f"**Website:** [{selected_blockchain.website}]({selected_blockchain.website})")
     st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("## Configuration")
     
     # Data upload section
     st.markdown("### Data Input")
-    uploaded_file = st.file_uploader("Upload dependency graph (CSV)", type=["csv"])
     
     use_sample_data = st.checkbox("Use sample data", value=True)
     
@@ -208,17 +198,13 @@ with st.sidebar:
     if include_github_metrics:
         github_data_source = st.radio(
             "GitHub Data Source",
-            options=["Simulated Data", "GitHub API", "Web Scraping"],
             index=0,
             help="Choose data source: Simulated data (offline), GitHub API (requires token), or Web Scraping (no token needed)"
         )
         
-        use_real_github_data = github_data_source in ["GitHub API", "Web Scraping"]
         use_web_scraping = github_data_source == "Web Scraping"
         
         # Store in session state
-        st.session_state["use_real_github_data"] = use_real_github_data
-        st.session_state["use_web_scraping"] = use_web_scraping
         
         if github_data_source == "GitHub API" and not os.environ.get("GITHUB_TOKEN"):
             st.warning("⚠️ No GitHub token found. You may encounter rate limits. Consider adding a GITHUB_TOKEN to your environment variables.")
@@ -234,17 +220,14 @@ with st.sidebar:
                 value=20,
                 help="Limit the number of repositories to scrape to avoid timeouts or potential blocking"
             )
-            st.session_state["max_repos_to_scrape"] = max_repos_to_scrape
     
     # Model selection
     st.markdown("### Model Selection")
-    model_type = st.selectbox("Ranking Model", ["XGBoost", "Linear", "Random Forest"])
     
     # Run button
     run_analysis = st.button("Run Analysis", use_container_width=True)
 
 # Main content
-tab1, tab2, tab3, tab4 = st.tabs(["Data Explorer", "Model & Analysis", "Visualizations", "Export & Documentation"])
 
 with tab1:
     st.markdown("<h2 class='section-header'>Data Explorer</h2>", unsafe_allow_html=True)
@@ -271,11 +254,9 @@ with tab1:
         
         # Check for expected columns and display appropriate metrics
         if 'child' in dependency_df.columns and 'parent' in dependency_df.columns:
-            st.write(f"Number of projects: {dependency_df['child'].nunique() + dependency_df['parent'].nunique()}")
             st.write(f"Number of dependencies: {len(dependency_df)}")
         elif 'source' in dependency_df.columns and 'target' in dependency_df.columns:
             # Alternative column names
-            st.write(f"Number of projects: {dependency_df['source'].nunique() + dependency_df['target'].nunique()}")
             st.write(f"Number of dependencies: {len(dependency_df)}")
         else:
             # Fallback for any column structure
@@ -302,7 +283,6 @@ with tab1:
                 # Convert to lists to avoid type issues
                 nodes_list = list(G.nodes())
                 edges_list = list(G.edges())
-                degree_values = [d for _, d in G.degree()]
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -332,17 +312,12 @@ with tab2:
                 use_web_scraping = st.session_state.get("use_web_scraping", False)
                 
                 # Convert G.nodes() to a list to ensure correct type
-                nodes_list = [str(node) for node in G.nodes()]
                 
                 # Limit the number of nodes for web scraping if needed
                 if use_web_scraping and "max_repos_to_scrape" in st.session_state:
-                    max_repos = st.session_state["max_repos_to_scrape"]
                     if len(nodes_list) > max_repos:
                         st.warning(f"Limiting web scraping to {max_repos} repositories (out of {len(nodes_list)} total)")
                         # Sort by PageRank score to prioritize important repos
-                        nodes_with_scores = [(node, pagerank_scores.get(node, 0)) for node in nodes_list]
-                        nodes_with_scores.sort(key=lambda x: x[1], reverse=True)
-                        nodes_list = [node for node, _ in nodes_with_scores[:max_repos]]
                 
                 if use_real_github_data and use_web_scraping:
                     st.info("Using enhanced web scraping to fetch GitHub data")
@@ -368,7 +343,6 @@ with tab2:
                         progress_bar.progress(100/100)
                         
                         # Store in session state for later use
-                        st.session_state["scraped_github_data"] = scraped_data
                 elif use_real_github_data and github_token:
                     st.info("Using real GitHub API data (with token)")
                     github_builder = GitHubDataBuilder(token=github_token)
@@ -421,7 +395,6 @@ with tab2:
             st.markdown("#### Model Training & Evaluation")
             
             # Simulated model training (in a real scenario, we would use real training data)
-            X, y = pd.DataFrame({'score': results_df['importance_score']}), results_df['importance_score']
             model = train_ranking_model(X, y, model_type=model_type)
             
             # Predict funding allocation
@@ -435,7 +408,6 @@ with tab2:
             st.markdown("#### Model Performance Metrics")
             metrics_cols = st.columns(len(evaluation_metrics))
             for i, (metric, value) in enumerate(evaluation_metrics.items()):
-                metrics_cols[i].metric(metric, f"{value:.4f}")
             st.markdown("</div>", unsafe_allow_html=True)
             
             # Advanced Analysis - GNN Implementation
@@ -460,9 +432,7 @@ with tab2:
                 """)
                 
                 # Create tabs for different GNN models
-                gnn_tabs = st.tabs(["Standard GNN", "Advanced GNN (Transformer)"])
                 
-                with gnn_tabs[0]:
                     run_gnn = st.button("Run Standard GNN Analysis", key="run_std_gnn_button")
                     
                     if run_gnn:
@@ -496,7 +466,6 @@ with tab2:
                                             # Create random but consistent features
                                             import hashlib
                                             hash_val = int(hashlib.md5(str(node).encode()).hexdigest(), 16) % 1000
-                                            github_features[node] = {
                                                 'stars': (hash_val % 100) / 100.0,
                                                 'forks': (hash_val % 50) / 100.0,
                                                 'activity': (hash_val % 75) / 100.0
@@ -534,7 +503,6 @@ with tab2:
                             else:
                                 st.error("GitHub features not available. Please load data first.")
                 
-                with gnn_tabs[1]:
                     advanced_gnn_info = st.expander("About Advanced GNN", expanded=True)
                     with advanced_gnn_info:
                         st.markdown("""
@@ -595,7 +563,6 @@ with tab2:
                                             # Create random but consistent features
                                             import hashlib
                                             hash_val = int(hashlib.md5(str(node).encode()).hexdigest(), 16) % 1000
-                                            github_features[node] = {
                                                 'stars': (hash_val % 100) / 100.0,
                                                 'forks': (hash_val % 50) / 100.0,
                                                 'activity': (hash_val % 75) / 100.0,
@@ -635,14 +602,9 @@ with tab2:
                                         time.sleep(0.05)
                                     
                                     # Store results in session state
-                                    st.session_state.advanced_gnn_scores = advanced_results['importance_scores']
-                                    st.session_state.explainability_scores = advanced_results['explainability_scores']
                                     
                                     # Display advanced GNN results
                                     adv_gnn_df = pd.DataFrame({
-                                        'project': list(advanced_results['importance_scores'].keys()),
-                                        'importance_score': list(advanced_results['importance_scores'].values()),
-                                        'explainability_score': list(advanced_results['explainability_scores'].values())
                                     }).sort_values('importance_score', ascending=False).head(10)
                                     
                                     st.markdown("#### Advanced GNN Importance Scores (Top 10)")
@@ -651,12 +613,10 @@ with tab2:
                                     # Try to identify critical dependencies
                                     try:
                                         critical_deps = identify_critical_dependencies(
-                                            G, advanced_results['importance_scores'], threshold=0.8
                                         )
                                         
                                         if critical_deps:
                                             st.markdown("#### Critical Dependencies Identified")
-                                            st.write(", ".join(critical_deps[:5]))
                                             if len(critical_deps) > 5:
                                                 st.write(f"...and {len(critical_deps) - 5} more")
                                     except Exception as e:
@@ -680,20 +640,14 @@ with tab2:
                                     st.dataframe(comparison_df.sort_values('gnn_score', ascending=False).head(5))
                                 
                                 # Create correlation matrix visualization
-                                corr = comparison_df[['pagerank_score', 'gnn_score']].corr()
                                 st.markdown("#### Score Correlation Matrix")
                                 st.dataframe(corr.style.background_gradient(cmap='coolwarm'), use_container_width=True)
                                 
                                 # Store GNN results in session state
-                                st.session_state['gnn_scores'] = gnn_scores
-                                st.session_state['comparison_df'] = comparison_df
-                                st.session_state['github_features'] = github_features
                                 
                                 # Set a flag to indicate GNN analysis is complete
-                                st.session_state['gnn_analysis_complete'] = True
                                 
                                 # Checkbox in Visualizations tab should be pre-selected
-                                st.session_state['show_gnn_results'] = True
                                 
                                 st.success("GNN analysis complete! GNN prioritizes different projects than PageRank - check the comparison.")
                             except Exception as e:
@@ -703,11 +657,6 @@ with tab2:
                             st.warning("GitHub features are required for GNN analysis. Please enable 'Include GitHub Metrics'.")
             
             # Store results in session state for other tabs
-            st.session_state['results_df'] = results_df
-            st.session_state['funding_allocation'] = funding_allocation
-            st.session_state['graph'] = G
-            st.session_state['pagerank_scores'] = pagerank_scores
-            st.session_state['final_scores'] = final_scores
     else:
         st.info("Upload data and click 'Run Analysis' to see model results.")
 
@@ -715,11 +664,6 @@ with tab3:
     st.markdown("<h2 class='section-header'>Visualizations</h2>", unsafe_allow_html=True)
     
     if 'results_df' in st.session_state and 'funding_allocation' in st.session_state:
-        results_df = st.session_state['results_df']
-        funding_allocation = st.session_state['funding_allocation']
-        G = st.session_state['graph']
-        pagerank_scores = st.session_state['pagerank_scores']
-        final_scores = st.session_state['final_scores']
         
         # Visualization options
         st.markdown("#### Select Visualizations")
@@ -757,7 +701,6 @@ with tab3:
             st.markdown("#### PageRank vs. Final Score Comparison")
             comparison_df = pd.DataFrame({
                 'project': list(final_scores.keys()),
-                'pagerank': [pagerank_scores.get(p, 0) for p in final_scores.keys()],
                 'final_score': list(final_scores.values())
             }).sort_values('final_score', ascending=False).head(15)
             
@@ -776,13 +719,10 @@ with tab3:
             st.markdown("### Graph Neural Network Analysis")
             
             # Create tabs for standard and advanced GNN visualizations
-            gnn_viz_tabs = st.tabs(["Standard GNN", "Advanced GNN"])
             
-            with gnn_viz_tabs[0]:
                 if 'gnn_scores' in st.session_state:
                     st.markdown("#### Standard GNN Analysis Results")
                     
-                    gnn_scores = st.session_state['gnn_scores']
                     comparison_df = st.session_state.get('comparison_df')
                     
                     # Show standard GNN visualizations
@@ -802,11 +742,9 @@ with tab3:
                 else:
                     st.info("Run Standard GNN Analysis first to see visualizations.")
             
-            with gnn_viz_tabs[1]:
                 if 'advanced_gnn_scores' in st.session_state:
                     st.markdown("#### Advanced GNN Analysis Results")
                     
-                    advanced_scores = st.session_state['advanced_gnn_scores']
                     explainability_scores = st.session_state.get('explainability_scores', {})
                     
                     # Show advanced GNN visualizations
@@ -814,7 +752,6 @@ with tab3:
                     adv_gnn_top10 = pd.DataFrame({
                         'project': list(advanced_scores.keys()),
                         'importance_score': list(advanced_scores.values()),
-                        'explainability_score': [explainability_scores.get(p, 0) for p in advanced_scores.keys()]
                     }).sort_values('importance_score', ascending=False).head(10)
                     
                     st.dataframe(adv_gnn_top10, use_container_width=True)
@@ -830,20 +767,15 @@ with tab3:
                     explainability_df = pd.DataFrame({
                         'project': list(advanced_scores.keys()),
                         'importance_score': list(advanced_scores.values()),
-                        'explainability_score': [explainability_scores.get(p, 0) for p in advanced_scores.keys()]
                     }).sort_values('explainability_score', ascending=False).head(15)
                     
                     # Create a scatter plot of importance vs explainability
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
-                        x=explainability_df['explainability_score'],
-                        y=explainability_df['importance_score'],
                         mode='markers+text',
-                        text=explainability_df['project'],
                         textposition="top center",
                         marker=dict(
                             size=10,
-                            color=explainability_df['importance_score'],
                             colorscale='Viridis',
                             showscale=True,
                             colorbar=dict(title="Importance Score")
@@ -892,13 +824,10 @@ with tab3:
                 st.markdown("##### GNN vs PageRank Priority Differences")
                 if comparison_df is not None:
                     # Calculate absolute difference between normalized scores
-                    comparison_df['score_diff'] = abs(
-                        comparison_df['pagerank_score'] - comparison_df['gnn_score']
                     )
                     
                     # Get projects with highest differences
                     diff_df = comparison_df.sort_values('score_diff', ascending=False).head(5)
-                    st.dataframe(diff_df[['project', 'pagerank_score', 'gnn_score', 'score_diff']])
                 else:
                     st.info("Run GNN analysis in the Model & Analysis tab to see comparison.")
                     
@@ -937,14 +866,7 @@ with tab3:
                             st.success(f"Identified {len(unsung_heroes)} unsung hero repositories!")
                             
                             # Display unsung heroes in a table
-                            heroes_df = pd.DataFrame([
                                 {
-                                    'Repository': hero['repository'],
-                                    'GNN Rank': hero['gnn_rank'],
-                                    'PageRank Rank': hero['pagerank_rank'],
-                                    'Rank Difference': hero['rank_difference'],
-                                    'GNN Score': f"{hero['gnn_score']:.4f}",
-                                    'PageRank Score': f"{hero['pagerank_score']:.4f}",
                                 }
                                 for hero in unsung_heroes
                             ])
@@ -982,7 +904,6 @@ with tab3:
                             st.info("No significant unsung heroes identified in this dataset.")
                             
                         # Store unsung heroes in session state
-                        st.session_state['unsung_heroes'] = unsung_heroes
                     else:
                         st.error("GitHub features are required for unsung heroes analysis. Please run the full analysis with GitHub metrics enabled.")
             
@@ -1053,11 +974,9 @@ with tab4:
     st.markdown("#### Export Results")
     
     if 'results_df' in st.session_state and 'funding_allocation' in st.session_state:
-        export_format = st.selectbox("Export Format", ["CSV", "JSON", "Excel"])
         
         if st.button("Export Results", use_container_width=True):
             if export_format == "CSV":
-                csv = export_results_to_csv(st.session_state['funding_allocation'])
                 st.download_button(
                     label="Download CSV",
                     data=csv,
@@ -1066,7 +985,6 @@ with tab4:
                     use_container_width=True
                 )
             elif export_format == "JSON":
-                json_str = st.session_state['funding_allocation'].to_json(orient="records")
                 st.download_button(
                     label="Download JSON",
                     data=json_str,
@@ -1076,7 +994,6 @@ with tab4:
                 )
             else:  # Excel
                 output = io.BytesIO()
-                st.session_state['funding_allocation'].to_excel(output, index=False)
                 excel_data = output.getvalue()
                 st.download_button(
                     label="Download Excel",

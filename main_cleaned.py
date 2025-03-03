@@ -702,12 +702,6 @@ with tab2:
                         else:
                             st.warning("GitHub features are required for GNN analysis. Please enable 'Include GitHub Metrics'.")
             
-            # Store results in session state for other tabs
-            st.session_state['results_df'] = results_df
-            st.session_state['funding_allocation'] = funding_allocation
-            st.session_state['graph'] = G
-            st.session_state['pagerank_scores'] = pagerank_scores
-            st.session_state['final_scores'] = final_scores
     else:
         st.info("Upload data and click 'Run Analysis' to see model results.")
 

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import networkx as nx
-from typing import Dict, Optional, Tuple, Set, List
+from typing import Dict, Optional, Tuple, Set, List, Any
 import logging
 
 logging.basicConfig(level=logging.INFO)

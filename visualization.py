@@ -605,3 +605,301 @@ def create_tier_distribution_chart(
     
     logger.info("Tier distribution chart created")
     return fig
+
+
+def create_gnn_relationship_visualization(
+    G: nx.DiGraph,
+    gnn_scores: Dict[str, float],
+    pagerank_scores: Dict[str, float],
+    unsung_heroes: Optional[List[Dict[str, Any]]] = None,
+    colorscale: str = 'Plasma',
+    max_nodes: int = 200,
+    highlight_heroes: bool = True
+) -> go.Figure:
+    """
+    Create a specialized visualization showing GNN-detected relationships
+    with an option to highlight "unsung hero" repositories.
+    
+    Args:
+        G: NetworkX directed graph
+        gnn_scores: Dictionary mapping nodes to GNN importance scores
+        pagerank_scores: Dictionary mapping nodes to PageRank scores
+        unsung_heroes: Optional list of unsung hero dictionaries from identify_unsung_heroes
+        colorscale: Plotly colorscale name
+        max_nodes: Maximum number of nodes to display
+        highlight_heroes: Whether to highlight unsung heroes
+        
+    Returns:
+        Plotly figure with GNN relationship visualization
+    """
+    logger.info("Creating GNN relationship visualization...")
+    
+    # If too many nodes, filter to top nodes by GNN score + any unsung heroes
+    if len(G.nodes()) > max_nodes:
+        # Get top nodes by GNN score
+        top_nodes = sorted(gnn_scores.keys(), key=lambda x: gnn_scores.get(x, 0), reverse=True)[:max_nodes]
+        
+        # Add any unsung heroes not already in top nodes
+        if unsung_heroes and highlight_heroes:
+            hero_nodes = [hero['repository'] for hero in unsung_heroes if hero['repository'] not in top_nodes]
+            # Only add heroes up to max_nodes limit
+            remaining_slots = max_nodes - len(top_nodes)
+            if remaining_slots > 0:
+                top_nodes.extend(hero_nodes[:remaining_slots])
+        
+        # Create subgraph with only these nodes
+        G = G.subgraph(top_nodes)
+    
+    # Get positions using a force-directed layout
+    pos = nx.spring_layout(G, seed=42)
+    
+    # Prepare edge trace
+    edge_x = []
+    edge_y = []
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+    
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=0.7, color='#888'),
+        hoverinfo='none',
+        mode='lines'
+    )
+    
+    # Prepare node trace
+    node_x = []
+    node_y = []
+    node_size = []
+    node_color = []
+    node_text = []
+    node_hover = []
+    
+    for node in G.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+        
+        # Set node size based on GNN score
+        score = gnn_scores.get(node, 0)
+        # Scale for better visualization
+        size = 20 + (score * 100)
+        node_size.append(size)
+        
+        # Set node color based on difference between GNN and PageRank
+        pr_score = pagerank_scores.get(node, 0)
+        # Calculate normalized difference
+        if pr_score > 0 and score > 0:
+            diff = (score - pr_score) / max(pr_score, score)
+        else:
+            diff = 0
+        node_color.append(diff)
+        
+        # Set node text
+        node_text.append(node)
+        
+        # Set hover text
+        degree = G.degree(node)
+        hover_text = f"{node}<br>GNN Score: {score:.4f}<br>PageRank: {pr_score:.4f}<br>Difference: {diff:.2f}<br>Connections: {degree}"
+        node_hover.append(hover_text)
+    
+    # Identify if node is an unsung hero
+    is_hero = [False] * len(node_x)
+    if unsung_heroes and highlight_heroes:
+        hero_repos = [hero['repository'] for hero in unsung_heroes]
+        is_hero = [node in hero_repos for node in G.nodes()]
+    
+    # Create main node trace
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers',
+        hoverinfo='text',
+        text=node_hover,
+        marker=dict(
+            showscale=True,
+            colorscale=colorscale,
+            color=node_color,
+            size=node_size,
+            colorbar=dict(
+                title="GNN-PageRank<br>Difference",
+                thickness=15,
+                len=0.5,
+                y=0.5
+            ),
+            line=dict(width=2, color='black')
+        )
+    )
+    
+    # Create separate trace for highlighted "unsung heroes"
+    hero_trace = None
+    if unsung_heroes and highlight_heroes and any(is_hero):
+        hero_x = [node_x[i] for i in range(len(node_x)) if is_hero[i]]
+        hero_y = [node_y[i] for i in range(len(node_y)) if is_hero[i]]
+        hero_text = [node_text[i] for i in range(len(node_text)) if is_hero[i]]
+        hero_hover = [node_hover[i] for i in range(len(node_hover)) if is_hero[i]]
+        hero_size = [node_size[i] for i in range(len(node_size)) if is_hero[i]]
+        
+        hero_trace = go.Scatter(
+            x=hero_x, y=hero_y,
+            mode='markers+text',
+            name='Unsung Heroes',
+            text=hero_text,
+            textposition="top center",
+            hoverinfo='text',
+            hovertext=hero_hover,
+            marker=dict(
+                color='rgba(255, 223, 0, 0.9)',  # Gold color
+                size=hero_size,
+                line=dict(width=3, color='black'),
+                symbol='star'
+            )
+        )
+    
+    # Create figure
+    fig = go.Figure(data=[edge_trace, node_trace])
+    
+    # Add hero trace if relevant
+    if hero_trace is not None:
+        fig.add_trace(hero_trace)
+    
+    # Add node labels for top nodes
+    top_indices = sorted(range(len(node_size)), key=lambda i: node_size[i], reverse=True)[:15]
+    for i in top_indices:
+        fig.add_annotation(
+            x=node_x[i], y=node_y[i],
+            text=node_text[i],
+            showarrow=False,
+            font=dict(size=10),
+            bgcolor="rgba(255, 255, 255, 0.7)",
+            yshift=10 + (node_size[i] / 10)
+        )
+    
+    # Update layout
+    fig.update_layout(
+        title="GNN Repository Relationship Analysis",
+        showlegend=False,
+        hovermode='closest',
+        margin=dict(b=20, l=5, r=5, t=40),
+        annotations=[dict(
+            text="Node size = GNN importance<br>Color = GNN-PageRank difference",
+            showarrow=False,
+            xref="paper", yref="paper",
+            x=0.01, y=0.01
+        )],
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        height=800
+    )
+    
+    logger.info("GNN relationship visualization created")
+    return fig
+
+
+def identify_critical_dependencies(
+    G: nx.DiGraph, 
+    importance_scores: Dict[str, float],
+    threshold: float = 0.9
+) -> List[str]:
+    """
+    Identify critical dependencies based on importance scores and graph structure.
+    
+    Args:
+        G: NetworkX directed graph
+        importance_scores: Dictionary mapping nodes to importance scores
+        threshold: Percentile threshold for critical dependencies
+        
+    Returns:
+        List of critical dependency nodes
+    """
+    logger.info(f"Identifying critical dependencies with threshold {threshold}...")
+    
+    # Calculate betweenness centrality to find key connectors
+    betweenness = nx.betweenness_centrality(G)
+    
+    # Calculate combined score (importance + betweenness)
+    combined_scores = {}
+    for node in G.nodes():
+        # Calculate a combined metric: importance * (1 + betweenness)
+        importance = importance_scores.get(node, 0)
+        between_value = betweenness.get(node, 0)
+        # This formula emphasizes important nodes that are also key connectors
+        combined_scores[node] = importance * (1 + between_value * 3)
+    
+    # Find threshold value at specified percentile
+    score_values = list(combined_scores.values())
+    threshold_value = np.percentile(score_values, threshold * 100)
+    
+    # Identify nodes above threshold
+    critical_nodes = [node for node, score in combined_scores.items() 
+                     if score >= threshold_value]
+    
+    logger.info(f"Identified {len(critical_nodes)} critical dependencies")
+    return critical_nodes
+
+
+def identify_unsung_heroes(
+    G: nx.DiGraph,
+    github_features: Dict[str, Dict[str, float]],
+    pagerank_scores: Dict[str, float],
+    threshold_percentile: float = 90
+) -> List[Dict[str, Any]]:
+    """
+    Identify 'unsung hero' repositories that are ranked much higher by GNN than by PageRank.
+    These are potentially undervalued projects that contribute significantly to the ecosystem
+    but don't receive proportional recognition.
+    
+    Args:
+        G: NetworkX graph
+        github_features: Dictionary mapping nodes to feature dictionaries
+        pagerank_scores: PageRank scores for comparison
+        threshold_percentile: Percentile threshold for difference in rankings
+        
+    Returns:
+        List of dictionaries with information about unsung hero repositories
+    """
+    from gnn_model import gnn_node_importance
+    
+    logger.info(f"Identifying unsung heroes with threshold percentile {threshold_percentile}...")
+    
+    # Calculate GNN scores
+    gnn_scores = gnn_node_importance(G, github_features)
+    
+    # Get ranks from scores (lower rank is better)
+    pr_ranks = {node: rank for rank, node in enumerate(sorted(pagerank_scores.keys(), 
+                                                  key=lambda x: pagerank_scores[x], 
+                                                  reverse=True))}
+    gnn_ranks = {node: rank for rank, node in enumerate(sorted(gnn_scores.keys(), 
+                                                 key=lambda x: gnn_scores[x], 
+                                                 reverse=True))}
+    
+    # Calculate rank differences
+    rank_diffs = {}
+    for node in G.nodes():
+        if node in pr_ranks and node in gnn_ranks:
+            # Positive difference means higher rank in GNN (better)
+            rank_diffs[node] = pr_ranks[node] - gnn_ranks[node]
+    
+    # Find threshold for "unsung hero" status
+    threshold = np.percentile(list(rank_diffs.values()), threshold_percentile)
+    
+    # Identify unsung heroes
+    unsung_heroes = []
+    for node, diff in rank_diffs.items():
+        if diff >= threshold:
+            hero_info = {
+                'repository': node,
+                'gnn_rank': gnn_ranks[node],
+                'pagerank_rank': pr_ranks[node],
+                'rank_difference': diff,
+                'gnn_score': gnn_scores.get(node, 0),
+                'pagerank_score': pagerank_scores.get(node, 0)
+            }
+            unsung_heroes.append(hero_info)
+    
+    # Sort by rank difference (descending)
+    unsung_heroes.sort(key=lambda x: x['rank_difference'], reverse=True)
+    
+    logger.info(f"Identified {len(unsung_heroes)} unsung heroes")
+    return unsung_heroes
