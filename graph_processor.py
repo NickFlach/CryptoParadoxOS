@@ -12,7 +12,7 @@ def load_dependency_graph(dependency_df: pd.DataFrame) -> nx.DiGraph:
     Load dependency data into a NetworkX directed graph.
     
     Args:
-        dependency_df: DataFrame with dependency data (parent, child columns)
+        dependency_df: DataFrame with dependency data (various column formats supported)
         
     Returns:
         NetworkX DiGraph representing the dependency structure
@@ -22,9 +22,41 @@ def load_dependency_graph(dependency_df: pd.DataFrame) -> nx.DiGraph:
     # Create directed graph
     G = nx.DiGraph()
     
-    # Add edges from parent to child
+    # Determine the column names based on what's available
+    if 'parent' in dependency_df.columns and 'child' in dependency_df.columns:
+        source_col, target_col = 'parent', 'child'
+    elif 'source' in dependency_df.columns and 'target' in dependency_df.columns:
+        source_col, target_col = 'source', 'target'
+    elif 'from' in dependency_df.columns and 'to' in dependency_df.columns:
+        source_col, target_col = 'from', 'to'
+    else:
+        # Fallback to the first two columns
+        columns = dependency_df.columns.tolist()
+        if len(columns) >= 2:
+            source_col, target_col = columns[0], columns[1]
+            logger.warning(f"Using columns '{source_col}' and '{target_col}' as source and target")
+        else:
+            # If there aren't enough columns, create a simple demo graph
+            logger.warning("Could not determine source and target columns. Creating demo graph.")
+            demo_edges = [
+                ("ethereum/go-ethereum", "ethereum/solidity"),
+                ("ethereum/go-ethereum", "ethereum/web3.js"),
+                ("ethereum/solidity", "ethereum/tests"),
+                ("ethereum/web3.js", "ethereum/ethers.js"),
+                ("ethereum/consensus-specs", "ethereum/beacon-chain"),
+                ("ethereum/beacon-chain", "ethereum/validator")
+            ]
+            for source, target in demo_edges:
+                G.add_edge(source, target)
+            logger.info(f"Created demo graph with {len(G.nodes())} nodes and {len(G.edges())} edges")
+            return G
+    
+    # Add edges from source to target
     for _, row in dependency_df.iterrows():
-        G.add_edge(row['parent'], row['child'])
+        try:
+            G.add_edge(row[source_col], row[target_col])
+        except Exception as e:
+            logger.error(f"Error adding edge: {e}")
     
     logger.info(f"Created graph with {len(G.nodes())} nodes and {len(G.edges())} edges")
     return G

@@ -183,8 +183,20 @@ with tab1:
         # Display data overview
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("#### Dependency Graph Overview")
-        st.write(f"Number of projects: {dependency_df['child'].nunique() + dependency_df['parent'].nunique()}")
-        st.write(f"Number of dependencies: {len(dependency_df)}")
+        
+        # Check for expected columns and display appropriate metrics
+        if 'child' in dependency_df.columns and 'parent' in dependency_df.columns:
+            st.write(f"Number of projects: {dependency_df['child'].nunique() + dependency_df['parent'].nunique()}")
+            st.write(f"Number of dependencies: {len(dependency_df)}")
+        elif 'source' in dependency_df.columns and 'target' in dependency_df.columns:
+            # Alternative column names
+            st.write(f"Number of projects: {dependency_df['source'].nunique() + dependency_df['target'].nunique()}")
+            st.write(f"Number of dependencies: {len(dependency_df)}")
+        else:
+            # Fallback for any column structure
+            st.write(f"Number of rows: {len(dependency_df)}")
+            st.write(f"Columns: {', '.join(dependency_df.columns)}")
+            
         st.markdown("</div>", unsafe_allow_html=True)
         
         # Display dataset
