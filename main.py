@@ -8,6 +8,14 @@ import io
 import os
 from PIL import Image
 
+# Set page config first, before any Streamlit element is shown
+st.set_page_config(
+    page_title="Crypto_ParadoxOS",
+    page_icon="💰",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 from graph_processor import (
     load_dependency_graph, 
     calculate_pagerank, 
@@ -57,14 +65,6 @@ from blockchain_manager import (
 
 # Initialize blockchain manager
 blockchain_manager = BlockchainManager()
-
-# Set page config first, before any Streamlit element is shown
-st.set_page_config(
-    page_title="Crypto_ParadoxOS",
-    page_icon="💰",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Check if blockchain configurations exist
 if len(blockchain_manager.get_all_blockchains()) == 0:
