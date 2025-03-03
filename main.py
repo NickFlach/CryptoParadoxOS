@@ -30,7 +30,8 @@ from visualization import (
     create_dependency_graph_visualization,
     create_funding_allocation_chart,
     create_project_importance_heatmap,
-    create_comparison_chart
+    create_comparison_chart,
+    create_gnn_relationship_visualization
 )
 from utils import (
     export_results_to_csv,
@@ -40,7 +41,9 @@ from gnn_model import (
     gnn_node_importance,
     get_node_embeddings,
     apply_gnn_funding_allocation,
-    compare_allocation_methods
+    compare_allocation_methods,
+    identify_unsung_heroes,
+    optimize_gnn_parameters
 )
 
 # Set page config
