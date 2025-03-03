@@ -137,15 +137,19 @@ def create_funding_allocation_chart(funding_allocation: pd.DataFrame) -> go.Figu
     """
     logger.info("Creating funding allocation chart...")
     
+    # Handle different column naming conventions
+    y_col = 'Repository' if 'Repository' in funding_allocation.columns else 'project'
+    x_col = 'Allocation' if 'Allocation' in funding_allocation.columns else 'funding_percent'
+    
     # Create funding allocation bar chart
     fig = px.bar(
         funding_allocation,
-        y='project',
-        x='funding_percent',
+        y=y_col,
+        x=x_col,
         orientation='h',
-        labels={'project': 'Project', 'funding_percent': 'Funding Allocation (%)'},
+        labels={y_col: 'Project', x_col: 'Funding Allocation (%)'},
         title='Funding Allocation by Project',
-        color='funding_percent',
+        color=x_col,
         color_continuous_scale='Viridis'
     )
     
@@ -174,18 +178,47 @@ def create_project_importance_heatmap(importance_df: pd.DataFrame) -> go.Figure:
     """
     logger.info("Creating project importance heatmap...")
     
-    # Reshape data for heatmap
-    # We'll create a matrix with projects on both axes
-    # and importance scores as values
-    projects = importance_df['project'].tolist()
-    scores = importance_df['importance_score'].tolist()
+    # Handle different column naming conventions
+    try:
+        # Determine the project column name
+        if 'project' in importance_df.columns:
+            project_col = 'project'
+        elif 'Repository' in importance_df.columns:
+            project_col = 'Repository'
+        else:
+            # Use the first column as the project column
+            project_col = importance_df.columns[0]
+            
+        # Reshape data for heatmap
+        # We'll create a matrix with projects on both axes
+        # and importance scores as values
+        projects = importance_df[project_col].tolist()
+        
+        # Find the score column
+        score_cols = [col for col in importance_df.columns if col != project_col]
+        if score_cols:
+            score_col = score_cols[0]  # Use the first non-project column as the score column
+            scores = importance_df[score_col].tolist()
+        else:
+            # If no score column is found, use a constant value
+            scores = [1.0] * len(projects)
+    except Exception as e:
+        # Handle error case for column extraction
+        logger.warning(f"Error processing DataFrame columns: {str(e)}. Using default values.")
+        projects = ["Project 1", "Project 2", "Project 3"]  # Default project names
+        scores = [1.0] * len(projects)  # Default scores
     
     # Normalize scores to [0, 1]
-    max_score = max(scores)
-    if max_score > 0:
-        normalized_scores = [s / max_score for s in scores]
-    else:
-        normalized_scores = scores
+    try:
+        max_score = max(scores)
+        if max_score > 0:
+            normalized_scores = [s / max_score for s in scores]
+        else:
+            normalized_scores = scores
+    except Exception as e:
+        # Handle error case
+        logger.warning(f"Error normalizing scores: {str(e)}. Using default values.")
+        normalized_scores = [1.0] * len(projects)
     
     # Create matrix data
     matrix = []
@@ -237,29 +270,76 @@ def create_comparison_chart(comparison_df: pd.DataFrame) -> go.Figure:
     """
     logger.info("Creating score comparison chart...")
     
+    # Handle different column naming conventions
+    repo_col = 'Repository' if 'Repository' in comparison_df.columns else 'project'
+    
+    # Determine score columns
+    score_cols = []
+    if 'PageRank' in comparison_df.columns:
+        score_cols.append('PageRank')
+    elif 'pagerank' in comparison_df.columns:
+        score_cols.append('pagerank')
+        
+    if 'Final Score' in comparison_df.columns:
+        score_cols.append('Final Score')
+    elif 'final_score' in comparison_df.columns:
+        score_cols.append('final_score')
+    
+    # If we don't have proper score columns, try to use what's available
+    if not score_cols and len(comparison_df.columns) >= 3:
+        score_cols = list(comparison_df.columns[1:3])  # Use the 2nd and 3rd columns
+    
     # Melt DataFrame for easier plotting
-    melted_df = pd.melt(
-        comparison_df,
-        id_vars=['project'],
-        value_vars=['pagerank', 'final_score'],
-        var_name='scoring_method',
-        value_name='score'
-    )
+    try:
+        melted_df = pd.melt(
+            comparison_df,
+            id_vars=[repo_col],
+            value_vars=score_cols,
+            var_name='scoring_method',
+            value_name='score'
+        )
+    except Exception as e:
+        # If melting fails, create a simple bar chart with the first score column
+        logger.warning(f"Error melting DataFrame: {str(e)}. Creating simplified chart.")
+        if len(comparison_df) > 0:
+            melted_df = comparison_df.copy()
+            melted_df['scoring_method'] = score_cols[0] if score_cols else 'Score'
+            melted_df['score'] = melted_df.iloc[:, 1]  # Use the second column as score
+        else:
+            # Create empty DataFrame with required columns
+            melted_df = pd.DataFrame(columns=[repo_col, 'scoring_method', 'score'])
+    
     
     # Create grouped bar chart
-    fig = px.bar(
-        melted_df,
-        x='project',
-        y='score',
-        color='scoring_method',
-        barmode='group',
-        labels={'project': 'Project', 'score': 'Score', 'scoring_method': 'Scoring Method'},
-        title='Comparison of Scoring Methods',
-        color_discrete_map={
-            'pagerank': '#1E88E5',
-            'final_score': '#FFC107'
-        }
-    )
+    try:
+        # Use the correct repository column name
+        x_col = repo_col
+        
+        fig = px.bar(
+            melted_df,
+            x=x_col,
+            y='score',
+            color='scoring_method',
+            barmode='group',
+            labels={x_col: 'Project', 'score': 'Score', 'scoring_method': 'Scoring Method'},
+            title='Comparison of Scoring Methods',
+            color_discrete_map={
+                'pagerank': '#1E88E5',
+                'PageRank': '#1E88E5',
+                'final_score': '#FFC107',
+                'Final Score': '#FFC107'
+            }
+        )
+    except Exception as e:
+        # Fallback to a simple figure if there's an error
+        logger.warning(f"Error creating bar chart: {str(e)}. Creating a simple figure.")
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No comparison data available",
+            showarrow=False,
+            xref="paper", yref="paper",
+            x=0.5, y=0.5
+        )
     
     # Update layout
     fig.update_layout(
@@ -607,194 +687,8 @@ def create_tier_distribution_chart(
     return fig
 
 
-def create_gnn_relationship_visualization(
-    G: nx.DiGraph,
-    gnn_scores: Dict[str, float],
-    pagerank_scores: Dict[str, float],
-    unsung_heroes: Optional[List[Dict[str, Any]]] = None,
-    colorscale: str = 'Plasma',
-    max_nodes: int = 200,
-    highlight_heroes: bool = True
-) -> go.Figure:
-    """
-    Create a specialized visualization showing GNN-detected relationships
-    with an option to highlight "unsung hero" repositories.
-    
-    Args:
-        G: NetworkX directed graph
-        gnn_scores: Dictionary mapping nodes to GNN importance scores
-        pagerank_scores: Dictionary mapping nodes to PageRank scores
-        unsung_heroes: Optional list of unsung hero dictionaries from identify_unsung_heroes
-        colorscale: Plotly colorscale name
-        max_nodes: Maximum number of nodes to display
-        highlight_heroes: Whether to highlight unsung heroes
-        
-    Returns:
-        Plotly figure with GNN relationship visualization
-    """
-    logger.info("Creating GNN relationship visualization...")
-    
-    # If too many nodes, filter to top nodes by GNN score + any unsung heroes
-    if len(G.nodes()) > max_nodes:
-        # Get top nodes by GNN score
-        top_nodes = sorted(gnn_scores.keys(), key=lambda x: gnn_scores.get(x, 0), reverse=True)[:max_nodes]
-        
-        # Add any unsung heroes not already in top nodes
-        if unsung_heroes and highlight_heroes:
-            hero_nodes = [hero['repository'] for hero in unsung_heroes if hero['repository'] not in top_nodes]
-            # Only add heroes up to max_nodes limit
-            remaining_slots = max_nodes - len(top_nodes)
-            if remaining_slots > 0:
-                top_nodes.extend(hero_nodes[:remaining_slots])
-        
-        # Create subgraph with only these nodes
-        G = G.subgraph(top_nodes)
-    
-    # Get positions using a force-directed layout
-    pos = nx.spring_layout(G, seed=42)
-    
-    # Prepare edge trace
-    edge_x = []
-    edge_y = []
-    for edge in G.edges():
-        x0, y0 = pos[edge[0]]
-        x1, y1 = pos[edge[1]]
-        edge_x.extend([x0, x1, None])
-        edge_y.extend([y0, y1, None])
-    
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y,
-        line=dict(width=0.7, color='#888'),
-        hoverinfo='none',
-        mode='lines'
-    )
-    
-    # Prepare node trace
-    node_x = []
-    node_y = []
-    node_size = []
-    node_color = []
-    node_text = []
-    node_hover = []
-    
-    for node in G.nodes():
-        x, y = pos[node]
-        node_x.append(x)
-        node_y.append(y)
-        
-        # Set node size based on GNN score
-        score = gnn_scores.get(node, 0)
-        # Scale for better visualization
-        size = 20 + (score * 100)
-        node_size.append(size)
-        
-        # Set node color based on difference between GNN and PageRank
-        pr_score = pagerank_scores.get(node, 0)
-        # Calculate normalized difference
-        if pr_score > 0 and score > 0:
-            diff = (score - pr_score) / max(pr_score, score)
-        else:
-            diff = 0
-        node_color.append(diff)
-        
-        # Set node text
-        node_text.append(node)
-        
-        # Set hover text
-        degree = G.degree(node)
-        hover_text = f"{node}<br>GNN Score: {score:.4f}<br>PageRank: {pr_score:.4f}<br>Difference: {diff:.2f}<br>Connections: {degree}"
-        node_hover.append(hover_text)
-    
-    # Identify if node is an unsung hero
-    is_hero = [False] * len(node_x)
-    if unsung_heroes and highlight_heroes:
-        hero_repos = [hero['repository'] for hero in unsung_heroes]
-        is_hero = [node in hero_repos for node in G.nodes()]
-    
-    # Create main node trace
-    node_trace = go.Scatter(
-        x=node_x, y=node_y,
-        mode='markers',
-        hoverinfo='text',
-        text=node_hover,
-        marker=dict(
-            showscale=True,
-            colorscale=colorscale,
-            color=node_color,
-            size=node_size,
-            colorbar=dict(
-                title="GNN-PageRank<br>Difference",
-                thickness=15,
-                len=0.5,
-                y=0.5
-            ),
-            line=dict(width=2, color='black')
-        )
-    )
-    
-    # Create separate trace for highlighted "unsung heroes"
-    hero_trace = None
-    if unsung_heroes and highlight_heroes and any(is_hero):
-        hero_x = [node_x[i] for i in range(len(node_x)) if is_hero[i]]
-        hero_y = [node_y[i] for i in range(len(node_y)) if is_hero[i]]
-        hero_text = [node_text[i] for i in range(len(node_text)) if is_hero[i]]
-        hero_hover = [node_hover[i] for i in range(len(node_hover)) if is_hero[i]]
-        hero_size = [node_size[i] for i in range(len(node_size)) if is_hero[i]]
-        
-        hero_trace = go.Scatter(
-            x=hero_x, y=hero_y,
-            mode='markers+text',
-            name='Unsung Heroes',
-            text=hero_text,
-            textposition="top center",
-            hoverinfo='text',
-            hovertext=hero_hover,
-            marker=dict(
-                color='rgba(255, 223, 0, 0.9)',  # Gold color
-                size=hero_size,
-                line=dict(width=3, color='black'),
-                symbol='star'
-            )
-        )
-    
-    # Create figure
-    fig = go.Figure(data=[edge_trace, node_trace])
-    
-    # Add hero trace if relevant
-    if hero_trace is not None:
-        fig.add_trace(hero_trace)
-    
-    # Add node labels for top nodes
-    top_indices = sorted(range(len(node_size)), key=lambda i: node_size[i], reverse=True)[:15]
-    for i in top_indices:
-        fig.add_annotation(
-            x=node_x[i], y=node_y[i],
-            text=node_text[i],
-            showarrow=False,
-            font=dict(size=10),
-            bgcolor="rgba(255, 255, 255, 0.7)",
-            yshift=10 + (node_size[i] / 10)
-        )
-    
-    # Update layout
-    fig.update_layout(
-        title="GNN Repository Relationship Analysis",
-        showlegend=False,
-        hovermode='closest',
-        margin=dict(b=20, l=5, r=5, t=40),
-        annotations=[dict(
-            text="Node size = GNN importance<br>Color = GNN-PageRank difference",
-            showarrow=False,
-            xref="paper", yref="paper",
-            x=0.01, y=0.01
-        )],
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        height=800
-    )
-    
-    logger.info("GNN relationship visualization created")
-    return fig
+# This function has been removed as it was a duplicate of the one defined earlier in the file.
+# The implementation starting at line 357 is the preferred one.
 
 
 def identify_critical_dependencies(
