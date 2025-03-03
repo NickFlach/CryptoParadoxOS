@@ -372,6 +372,7 @@ with tab2:
                             # Store GNN results in session state
                             st.session_state['gnn_scores'] = gnn_scores
                             st.session_state['comparison_df'] = comparison_df
+                            st.session_state['github_features'] = github_features
                             
                             st.success("GNN analysis complete! GNN prioritizes different projects than PageRank - check the comparison.")
                         else:
@@ -484,6 +485,81 @@ with tab3:
                 colorscale='Plasma'  # Different colorscale to distinguish from PageRank
             )
             st.plotly_chart(fig, use_container_width=True)
+            
+            # Unsung Heroes Analysis Section
+            st.markdown("#### 🌟 Unsung Heroes Analysis")
+            st.markdown("""
+            This analysis identifies repositories that are ranked much higher by our GNN than by traditional PageRank.
+            These are potentially undervalued projects that contribute significantly to the Ethereum ecosystem
+            but may not receive proportional recognition or funding.
+            """)
+            
+            if st.button("Identify Unsung Heroes"):
+                with st.spinner("Analyzing repository relationships to identify unsung heroes..."):
+                    # Get github_features from session state
+                    github_features = st.session_state.get('github_features')
+                    
+                    if github_features is not None:
+                        # Run unsung heroes identification
+                        unsung_heroes = identify_unsung_heroes(
+                            G, 
+                            github_features, 
+                            pagerank_scores,
+                            threshold_percentile=90
+                        )
+                        
+                        if unsung_heroes:
+                            st.success(f"Identified {len(unsung_heroes)} unsung hero repositories!")
+                            
+                            # Display unsung heroes in a table
+                            heroes_df = pd.DataFrame([
+                                {
+                                    'Repository': hero['repository'],
+                                    'GNN Rank': hero['gnn_rank'],
+                                    'PageRank Rank': hero['pagerank_rank'],
+                                    'Rank Difference': hero['rank_difference'],
+                                    'GNN Score': f"{hero['gnn_score']:.4f}",
+                                    'PageRank Score': f"{hero['pagerank_score']:.4f}",
+                                }
+                                for hero in unsung_heroes
+                            ])
+                            
+                            st.dataframe(heroes_df, use_container_width=True)
+                            
+                            # Create specialized GNN relationship visualization with highlighted heroes
+                            st.markdown("##### GNN Relationship Visualization (Highlighting Unsung Heroes)")
+                            
+                            fig = create_gnn_relationship_visualization(
+                                G,
+                                gnn_scores,
+                                pagerank_scores,
+                                unsung_heroes=unsung_heroes,
+                                highlight_heroes=True,
+                                colorscale='Plasma',
+                                max_nodes=100
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Add explanation about why these are important
+                            st.markdown("""
+                            #### Why Unsung Heroes Matter
+                            
+                            These repositories might be critical to the ecosystem in ways that traditional metrics miss:
+                            
+                            * They may provide **foundational infrastructure** that many other projects build upon
+                            * They might serve as **connectors** or **bridges** between different parts of the ecosystem
+                            * They could implement **critical security features** that don't attract attention but are essential
+                            * They may be **newer innovations** that haven't yet accumulated traditional reputation metrics
+                            
+                            Funding these projects could provide outsized impact for the ecosystem.
+                            """)
+                        else:
+                            st.info("No significant unsung heroes identified in this dataset.")
+                            
+                        # Store unsung heroes in session state
+                        st.session_state['unsung_heroes'] = unsung_heroes
+                    else:
+                        st.error("GitHub features are required for unsung heroes analysis. Please run the full analysis with GitHub metrics enabled.")
             
             st.markdown("""
             **Note on GNN vs PageRank**: 
