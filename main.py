@@ -786,7 +786,7 @@ with tab4:
                 st.download_button(
                     label="Download JSON",
                     data=json_str,
-                    file_name="ethereum_funding_allocation.json",
+                    file_name=f"{selected_blockchain_id}_funding_allocation.json",
                     mime="application/json",
                     use_container_width=True
                 )
@@ -797,7 +797,7 @@ with tab4:
                 st.download_button(
                     label="Download Excel",
                     data=excel_data,
-                    file_name="ethereum_funding_allocation.xlsx",
+                    file_name=f"{selected_blockchain_id}_funding_allocation.xlsx",
                     mime="application/vnd.ms-excel",
                     use_container_width=True
                 )
@@ -834,4 +834,4 @@ with tab4:
 
 # Footer
 st.markdown("---")
-st.markdown("Ethereum Funding Allocation Tool | Based on Paradoxical OS Innovation Strategy | v1.0")
+st.markdown(f"Blockchain Funding Allocation Tool | {selected_blockchain.display_name} | Based on Paradoxical OS Innovation Strategy | v1.0")

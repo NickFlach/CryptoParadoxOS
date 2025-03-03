@@ -185,12 +185,12 @@ def _generate_additional_repos(blockchain_config: BlockchainConfig, num_repos: i
     
     # Generate repositories from random community organizations
     community_orgs = [
-        f"dev-{i}", f"team-{i}", f"{blockchain_name}-community-{i}", 
-        f"{blockchain_name}-labs-{i}", f"open-{blockchain_name}-{i}"
+        "dev", "team", f"{blockchain_name}-community", 
+        f"{blockchain_name}-labs", f"open-{blockchain_name}"
     ] 
     
     while len(additional_repos) < num_repos:
-        org = random.choice(community_orgs).format(i=random.randint(1, 100))
+        org = f"{random.choice(community_orgs)}-{random.randint(1, 100)}"
         repo_type = random.choice(types)
         prefix = random.choice(prefixes)
         suffix = random.choice(suffixes)
