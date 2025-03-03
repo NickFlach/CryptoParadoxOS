@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.xsimd
+    pkgs.pkg-config
     pkgs.glibcLocales
     pkgs.zlib
     pkgs.tk

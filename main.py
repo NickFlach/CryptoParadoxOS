@@ -36,6 +36,12 @@ from utils import (
     export_results_to_csv,
     compute_validation_metrics
 )
+from gnn_model import (
+    gnn_node_importance,
+    get_node_embeddings,
+    apply_gnn_funding_allocation,
+    compare_allocation_methods
+)
 
 # Set page config
 st.set_page_config(
@@ -310,6 +316,63 @@ with tab2:
             for i, (metric, value) in enumerate(evaluation_metrics.items()):
                 metrics_cols[i].metric(metric, f"{value:.4f}")
             st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Advanced Analysis - GNN Implementation
+            st.markdown("#### Advanced Graph Neural Network Analysis")
+            
+            with st.expander("Run GNN Analysis", expanded=False):
+                st.markdown("""
+                🧠 **Graph Neural Network (GNN) Analysis**
+                
+                This analysis uses a deep learning approach to understand project importance in the Ethereum ecosystem.
+                Unlike PageRank which primarily considers link structure, GNNs can learn from both graph structure and node features.
+                """)
+                
+                run_gnn = st.button("Run GNN Analysis", key="run_gnn_button")
+                
+                if run_gnn:
+                    with st.spinner("Training Graph Neural Network..."):
+                        if github_features:
+                            # Run GNN analysis
+                            st.info("Training GNN model on repository graph and features...")
+                            gnn_scores = gnn_node_importance(G, github_features, reference_scores=pagerank_scores)
+                            
+                            # Compare allocation methods
+                            comparison_df = compare_allocation_methods(G, github_features, pagerank_scores)
+                            
+                            # Display GNN results
+                            gnn_df = pd.DataFrame({
+                                'project': list(gnn_scores.keys()),
+                                'gnn_score': list(gnn_scores.values())
+                            }).sort_values('gnn_score', ascending=False).head(10)
+                            
+                            st.markdown("#### GNN Importance Scores (Top 10)")
+                            st.dataframe(gnn_df, use_container_width=True)
+                            
+                            # Create side-by-side comparison
+                            st.markdown("#### PageRank vs GNN Score Comparison (Top 15)")
+                            comparison_top = comparison_df.sort_values('gnn_score', ascending=False).head(15)
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown("**PageRank Top 5**")
+                                st.dataframe(comparison_df.sort_values('pagerank_score', ascending=False).head(5))
+                            with col2:
+                                st.markdown("**GNN Top 5**")
+                                st.dataframe(comparison_df.sort_values('gnn_score', ascending=False).head(5))
+                            
+                            # Create correlation matrix visualization
+                            corr = comparison_df[['pagerank_score', 'gnn_score']].corr()
+                            st.markdown("#### Score Correlation Matrix")
+                            st.dataframe(corr.style.background_gradient(cmap='coolwarm'), use_container_width=True)
+                            
+                            # Store GNN results in session state
+                            st.session_state['gnn_scores'] = gnn_scores
+                            st.session_state['comparison_df'] = comparison_df
+                            
+                            st.success("GNN analysis complete! GNN prioritizes different projects than PageRank - check the comparison.")
+                        else:
+                            st.warning("GitHub features are required for GNN analysis. Please enable 'Include GitHub Metrics'.")
             
             # Store results in session state for other tabs
             st.session_state['results_df'] = results_df

@@ -11,7 +11,18 @@ dependencies = [
     "plotly>=6.0.0",
     "requests>=2.32.3",
     "scikit-learn>=1.6.1",
+    "scipy>=1.15.2",
     "streamlit>=1.42.2",
+    "torch>=2.6.0",
     "trafilatura>=2.0.0",
     "xgboost>=2.1.4",
 ]
+
+[[tool.uv.index]]
+explicit = true
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "platform_system == 'Linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "platform_system == 'Linux'" }]
