@@ -66,6 +66,26 @@ st.markdown("""
         padding: 1.5rem;
         margin-bottom: 1rem;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid #4A90E2;
+        display: block;
+    }
+    .blockchain-card h4 {
+        color: #4A90E2;
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 1.2rem;
+    }
+    .blockchain-card p {
+        margin-bottom: 15px;
+        color: #333;
+    }
+    .blockchain-card ul {
+        margin-bottom: 0;
+        padding-left: 20px;
+    }
+    .blockchain-card li {
+        margin-bottom: 5px;
+        color: #666;
     }
     .metric-container {
         background-color: #EFF6FF;
@@ -385,12 +405,22 @@ with tab3:
         
         # Create metrics matrix
         if st.session_state.github_metrics:
-            metrics_df = pd.DataFrame(index=top_repos['Repository'])
+            # First, create a better structure for the heatmap
+            # We will use Repository column and Score column from top_repos
+            metrics_df = pd.DataFrame()
+            metrics_df['Repository'] = top_repos['Repository']
+            metrics_df['Importance Score'] = top_repos['Score']
             
-            for repo in metrics_df.index:
+            # Add the GitHub metrics as additional columns
+            for repo in metrics_df['Repository']:
                 if repo in st.session_state.github_metrics:
                     for metric, value in st.session_state.github_metrics[repo].items():
-                        metrics_df.loc[repo, metric] = value
+                        if metric not in metrics_df.columns:
+                            metrics_df[metric] = 0
+                        metrics_df.loc[metrics_df['Repository'] == repo, metric] = value
+            
+            # Reset index to make sure the Repository is a column, not the index
+            metrics_df = metrics_df.reset_index(drop=True)
             
             # Fill NaNs with 0
             metrics_df = metrics_df.fillna(0)
