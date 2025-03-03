@@ -64,7 +64,7 @@ if len(blockchain_manager.get_all_blockchains()) == 0:
 
 # Set page config
 st.set_page_config(
-    page_title="Blockchain Funding Allocation Tool",
+    page_title="Crypto_ParadoxOS",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -139,8 +139,8 @@ selected_blockchain_id = st.session_state['selected_blockchain_id']
 selected_blockchain = blockchain_manager.get_blockchain(selected_blockchain_id)
 
 # Main header
-st.markdown("<h1 class='main-header'>Blockchain Funding Allocation Tool</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-header'>AI-driven funding allocation for blockchain open-source ecosystems using graph analysis and machine learning</p>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>Crypto_ParadoxOS</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-header'>AI-driven funding allocation for blockchain open-source ecosystems powered by Paradoxical OS Innovation Strategy</p>", unsafe_allow_html=True)
 
 # Blockchain selector in main UI
 col1, col2, col3 = st.columns([2, 4, 2])
@@ -834,4 +834,4 @@ with tab4:
 
 # Footer
 st.markdown("---")
-st.markdown(f"Blockchain Funding Allocation Tool | {selected_blockchain.display_name} | Based on Paradoxical OS Innovation Strategy | v1.0")
+st.markdown(f"Crypto_ParadoxOS | {selected_blockchain.display_name} | Based on Paradoxical OS Innovation Strategy | v1.0")
