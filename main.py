@@ -16,9 +16,12 @@ from graph_processor import (
 )
 from github_metrics import (
     extract_github_metrics,
-    normalize_github_features,
-    ensure_sample_data_exists,
-    generate_sample_dependency_csv
+    normalize_github_features
+)
+from blockchain_data_generator import (
+    ensure_blockchain_sample_data_exists,
+    generate_blockchain_dependency_csv,
+    generate_all_blockchain_samples
 )
 from github_data_builder import GitHubDataBuilder
 from model import (
@@ -45,10 +48,23 @@ from gnn_model import (
     identify_unsung_heroes,
     optimize_gnn_parameters
 )
+from blockchain_manager import (
+    BlockchainManager,
+    BlockchainConfig,
+    BlockchainAdapter,
+    EnhancedBlockchainAdapterFactory
+)
+
+# Initialize blockchain manager
+blockchain_manager = BlockchainManager()
+
+# Check if blockchain configurations exist
+if len(blockchain_manager.get_all_blockchains()) == 0:
+    blockchain_manager.add_default_blockchains()
 
 # Set page config
 st.set_page_config(
-    page_title="Ethereum Funding Allocation Tool",
+    page_title="Blockchain Funding Allocation Tool",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -90,16 +106,79 @@ st.markdown("""
         border-radius: 0.25rem;
         margin-bottom: 1rem;
     }
+    .blockchain-selector {
+        margin-bottom: 1.5rem;
+    }
+    .blockchain-logo {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    .blockchain-info {
+        padding: 0.75rem;
+        background-color: #f1f8fe;
+        border-radius: 0.25rem;
+        margin-bottom: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# Get blockchain list for selection
+blockchain_options = blockchain_manager.get_blockchain_list()
+blockchain_ids = [b_id for b_id, _ in blockchain_options]
+blockchain_names = [name for _, name in blockchain_options]
+
+# Default to Ethereum if available, otherwise first blockchain
+default_idx = blockchain_ids.index('ethereum') if 'ethereum' in blockchain_ids else 0
+
+# Initialize session state for selected blockchain if not set
+if 'selected_blockchain_id' not in st.session_state:
+    st.session_state['selected_blockchain_id'] = blockchain_ids[default_idx]
+
+# Get the selected blockchain config
+selected_blockchain_id = st.session_state['selected_blockchain_id']
+selected_blockchain = blockchain_manager.get_blockchain(selected_blockchain_id)
+
 # Main header
-st.markdown("<h1 class='main-header'>Ethereum Funding Allocation Tool</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-header'>AI-driven funding allocation for Ethereum's open-source ecosystem using graph analysis and machine learning</p>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>Blockchain Funding Allocation Tool</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-header'>AI-driven funding allocation for blockchain open-source ecosystems using graph analysis and machine learning</p>", unsafe_allow_html=True)
+
+# Blockchain selector in main UI
+col1, col2, col3 = st.columns([2, 4, 2])
+with col2:
+    st.markdown("<div class='blockchain-selector'>", unsafe_allow_html=True)
+    selected_index = st.selectbox(
+        "Select Blockchain Ecosystem",
+        options=range(len(blockchain_options)),
+        format_func=lambda i: blockchain_names[i],
+        index=blockchain_ids.index(selected_blockchain_id)
+    )
+    
+    # Update the selected blockchain when changed
+    if blockchain_ids[selected_index] != selected_blockchain_id:
+        st.session_state['selected_blockchain_id'] = blockchain_ids[selected_index]
+        selected_blockchain_id = blockchain_ids[selected_index]
+        selected_blockchain = blockchain_manager.get_blockchain(selected_blockchain_id)
+        st.rerun()
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Ethereum_logo_2014.svg/1257px-Ethereum_logo_2014.svg.png", width=150)
+    st.markdown("<div class='blockchain-logo'>", unsafe_allow_html=True)
+    st.image(selected_blockchain.logo_url, width=150)
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Display blockchain info
+    st.markdown("<div class='blockchain-info'>", unsafe_allow_html=True)
+    st.markdown(f"### {selected_blockchain.display_name}")
+    st.markdown(f"*{selected_blockchain.description}*")
+    st.markdown(f"**Primary Language:** {selected_blockchain.primary_language}")
+    if selected_blockchain.year_founded:
+        st.markdown(f"**Founded:** {selected_blockchain.year_founded}")
+    if selected_blockchain.website:
+        st.markdown(f"**Website:** [{selected_blockchain.website}]({selected_blockchain.website})")
+    st.markdown("</div>", unsafe_allow_html=True)
+    
     st.markdown("## Configuration")
     
     # Data upload section
@@ -161,20 +240,17 @@ tab1, tab2, tab3, tab4 = st.tabs(["Data Explorer", "Model & Analysis", "Visualiz
 with tab1:
     st.markdown("<h2 class='section-header'>Data Explorer</h2>", unsafe_allow_html=True)
     
-    # Ensure sample data exists
-    ensure_sample_data_exists()
+    # Ensure sample data exists for the selected blockchain
+    sample_file = ensure_blockchain_sample_data_exists(selected_blockchain_id)
     
     # Load data
     if uploaded_file is not None:
         dependency_df = pd.read_csv(uploaded_file)
         use_sample_data = False
     elif use_sample_data:
-        # Use generated sample data
-        sample_file = "data/ethereum_dependencies.csv"
-        if not os.path.exists(sample_file):
-            sample_file = generate_sample_dependency_csv()
+        # Use generated sample data for selected blockchain
         dependency_df = pd.read_csv(sample_file)
-        st.success(f"Loaded sample dependency data with {len(dependency_df)} relationships")
+        st.success(f"Loaded sample dependency data for {selected_blockchain.display_name} with {len(dependency_df)} relationships")
     else:
         st.warning("Please upload a dependency graph file or use sample data.")
         dependency_df = None
@@ -336,10 +412,10 @@ with tab2:
             st.markdown("#### Advanced Graph Neural Network Analysis")
             
             with st.expander("Run GNN Analysis", expanded=True):
-                st.markdown("""
+                st.markdown(f"""
                 🧠 **Graph Neural Network (GNN) Analysis**
                 
-                This analysis uses a deep learning approach to understand project importance in the Ethereum ecosystem.
+                This analysis uses a deep learning approach to understand project importance in the {selected_blockchain.display_name} ecosystem.
                 Unlike PageRank which primarily considers link structure, GNNs can learn from both graph structure and node features.
                 """)
                 
@@ -553,9 +629,9 @@ with tab3:
             
             # Unsung Heroes Analysis Section
             st.markdown("#### 🌟 Unsung Heroes Analysis")
-            st.markdown("""
+            st.markdown(f"""
             This analysis identifies repositories that are ranked much higher by our GNN than by traditional PageRank.
-            These are potentially undervalued projects that contribute significantly to the Ethereum ecosystem
+            These are potentially undervalued projects that contribute significantly to the {selected_blockchain.display_name} ecosystem
             but may not receive proportional recognition or funding.
             """)
             
@@ -701,7 +777,7 @@ with tab4:
                 st.download_button(
                     label="Download CSV",
                     data=csv,
-                    file_name="ethereum_funding_allocation.csv",
+                    file_name=f"{selected_blockchain_id}_funding_allocation.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
