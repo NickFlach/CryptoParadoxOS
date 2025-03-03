@@ -335,7 +335,7 @@ with tab2:
             # Advanced Analysis - GNN Implementation
             st.markdown("#### Advanced Graph Neural Network Analysis")
             
-            with st.expander("Run GNN Analysis", expanded=False):
+            with st.expander("Run GNN Analysis", expanded=True):
                 st.markdown("""
                 🧠 **Graph Neural Network (GNN) Analysis**
                 
@@ -343,50 +343,96 @@ with tab2:
                 Unlike PageRank which primarily considers link structure, GNNs can learn from both graph structure and node features.
                 """)
                 
+                # Add an explanation for any errors the user might encounter
+                st.info("""
+                ℹ️ **GNN Analysis Steps**:
+                
+                1. Make sure you've loaded dependency data and clicked "Run Analysis" first
+                2. Ensure "Include GitHub Metrics" is enabled for best results
+                3. Click the button below to run the GNN model
+                4. Go to the Visualizations tab to see detailed results including "Unsung Heroes"
+                """)
+                
                 run_gnn = st.button("Run GNN Analysis", key="run_gnn_button")
                 
                 if run_gnn:
                     with st.spinner("Training Graph Neural Network..."):
                         if github_features:
-                            # Run GNN analysis
-                            st.info("Training GNN model on repository graph and features...")
-                            gnn_scores = gnn_node_importance(G, github_features, reference_scores=pagerank_scores)
-                            
-                            # Compare allocation methods
-                            comparison_df = compare_allocation_methods(G, github_features, pagerank_scores)
-                            
-                            # Display GNN results
-                            gnn_df = pd.DataFrame({
-                                'project': list(gnn_scores.keys()),
-                                'gnn_score': list(gnn_scores.values())
-                            }).sort_values('gnn_score', ascending=False).head(10)
-                            
-                            st.markdown("#### GNN Importance Scores (Top 10)")
-                            st.dataframe(gnn_df, use_container_width=True)
-                            
-                            # Create side-by-side comparison
-                            st.markdown("#### PageRank vs GNN Score Comparison (Top 15)")
-                            comparison_top = comparison_df.sort_values('gnn_score', ascending=False).head(15)
-                            
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.markdown("**PageRank Top 5**")
-                                st.dataframe(comparison_df.sort_values('pagerank_score', ascending=False).head(5))
-                            with col2:
-                                st.markdown("**GNN Top 5**")
-                                st.dataframe(comparison_df.sort_values('gnn_score', ascending=False).head(5))
-                            
-                            # Create correlation matrix visualization
-                            corr = comparison_df[['pagerank_score', 'gnn_score']].corr()
-                            st.markdown("#### Score Correlation Matrix")
-                            st.dataframe(corr.style.background_gradient(cmap='coolwarm'), use_container_width=True)
-                            
-                            # Store GNN results in session state
-                            st.session_state['gnn_scores'] = gnn_scores
-                            st.session_state['comparison_df'] = comparison_df
-                            st.session_state['github_features'] = github_features
-                            
-                            st.success("GNN analysis complete! GNN prioritizes different projects than PageRank - check the comparison.")
+                            try:
+                                # Run GNN analysis
+                                st.info("Training GNN model on repository graph and features...")
+                                
+                                # Ensure the Graph is loaded
+                                if G is None:
+                                    st.error("Graph is not properly loaded. Please ensure you've loaded dependency data.")
+                                    st.stop()
+                                    
+                                try:
+                                    # Check if graph has nodes
+                                    num_nodes = len(list(G.nodes()))
+                                    if num_nodes == 0:
+                                        st.error("Graph has no nodes. Please ensure dependency data is valid.")
+                                        st.stop()
+                                except Exception as e:
+                                    st.error(f"Error checking graph: {str(e)}")
+                                    st.stop()
+                                    
+                                # Make sure we have GitHub features    
+                                if not github_features:
+                                    st.warning("No GitHub features available. Using generated sample features.")
+                                    # Generate simple features for each node
+                                    github_features = {}
+                                    for node in G.nodes():
+                                        # Create random but consistent features
+                                        import hashlib
+                                        hash_val = int(hashlib.md5(str(node).encode()).hexdigest(), 16) % 1000
+                                        github_features[node] = {
+                                            'stars': (hash_val % 100) / 100.0,
+                                            'forks': (hash_val % 50) / 100.0,
+                                            'activity': (hash_val % 75) / 100.0
+                                        }
+                                
+                                # Run GNN node importance analysis
+                                gnn_scores = gnn_node_importance(G, github_features, reference_scores=pagerank_scores)
+                                
+                                # Compare allocation methods
+                                comparison_df = compare_allocation_methods(G, github_features, pagerank_scores)
+                                
+                                # Display GNN results
+                                gnn_df = pd.DataFrame({
+                                    'project': list(gnn_scores.keys()),
+                                    'gnn_score': list(gnn_scores.values())
+                                }).sort_values('gnn_score', ascending=False).head(10)
+                                
+                                st.markdown("#### GNN Importance Scores (Top 10)")
+                                st.dataframe(gnn_df, use_container_width=True)
+                                
+                                # Create side-by-side comparison
+                                st.markdown("#### PageRank vs GNN Score Comparison (Top 15)")
+                                comparison_top = comparison_df.sort_values('gnn_score', ascending=False).head(15)
+                                
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("**PageRank Top 5**")
+                                    st.dataframe(comparison_df.sort_values('pagerank_score', ascending=False).head(5))
+                                with col2:
+                                    st.markdown("**GNN Top 5**")
+                                    st.dataframe(comparison_df.sort_values('gnn_score', ascending=False).head(5))
+                                
+                                # Create correlation matrix visualization
+                                corr = comparison_df[['pagerank_score', 'gnn_score']].corr()
+                                st.markdown("#### Score Correlation Matrix")
+                                st.dataframe(corr.style.background_gradient(cmap='coolwarm'), use_container_width=True)
+                                
+                                # Store GNN results in session state
+                                st.session_state['gnn_scores'] = gnn_scores
+                                st.session_state['comparison_df'] = comparison_df
+                                st.session_state['github_features'] = github_features
+                                
+                                st.success("GNN analysis complete! GNN prioritizes different projects than PageRank - check the comparison.")
+                            except Exception as e:
+                                st.error(f"Error running GNN analysis: {str(e)}")
+                                st.info("Try running the main analysis first to ensure all required data is loaded properly.")
                         else:
                             st.warning("GitHub features are required for GNN analysis. Please enable 'Include GitHub Metrics'.")
             
