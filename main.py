@@ -58,17 +58,17 @@ from blockchain_manager import (
 # Initialize blockchain manager
 blockchain_manager = BlockchainManager()
 
-# Check if blockchain configurations exist
-if len(blockchain_manager.get_all_blockchains()) == 0:
-    blockchain_manager.add_default_blockchains()
-
-# Set page config
+# Set page config first, before any Streamlit element is shown
 st.set_page_config(
     page_title="Crypto_ParadoxOS",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Check if blockchain configurations exist
+if len(blockchain_manager.get_all_blockchains()) == 0:
+    blockchain_manager.add_default_blockchains()
 
 # Custom CSS
 st.markdown("""
