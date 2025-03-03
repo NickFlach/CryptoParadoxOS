@@ -429,6 +429,12 @@ with tab2:
                                 st.session_state['comparison_df'] = comparison_df
                                 st.session_state['github_features'] = github_features
                                 
+                                # Set a flag to indicate GNN analysis is complete
+                                st.session_state['gnn_analysis_complete'] = True
+                                
+                                # Checkbox in Visualizations tab should be pre-selected
+                                st.session_state['show_gnn_results'] = True
+                                
                                 st.success("GNN analysis complete! GNN prioritizes different projects than PageRank - check the comparison.")
                             except Exception as e:
                                 st.error(f"Error running GNN analysis: {str(e)}")
@@ -461,7 +467,8 @@ with tab3:
         with col1:
             show_importance = st.checkbox("Show Project Importance", value=True)
             show_funding = st.checkbox("Show Funding Allocation", value=True)
-            show_gnn_results = st.checkbox("Show GNN Analysis Results", value=False)
+            show_gnn_results = st.checkbox("Show GNN Analysis Results", 
+                                            value=st.session_state.get('show_gnn_results', False))
         with col2:
             show_comparison = st.checkbox("Show Comparison Chart", value=True)
             show_heatmap = st.checkbox("Show Importance Heatmap", value=True)
@@ -632,7 +639,11 @@ with tab3:
             This often leads to discovering "unsung heroes" - projects with critical importance but low visibility.
             """)
         elif show_gnn_results:
-            st.info("Run GNN analysis in the Model & Analysis tab first.")
+            # Check if GNN was run but results not properly stored
+            if st.session_state.get('gnn_analysis_complete', False):
+                st.success("GNN analysis completed! Please go to Model & Analysis tab, then rerun the GNN analysis to update the results.")
+            else:
+                st.info("Run GNN analysis in the Model & Analysis tab first.")
     else:
         st.info("Run the analysis in the 'Model & Analysis' tab to generate visualizations.")
 
