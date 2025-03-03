@@ -399,6 +399,7 @@ with tab3:
         with col1:
             show_importance = st.checkbox("Show Project Importance", value=True)
             show_funding = st.checkbox("Show Funding Allocation", value=True)
+            show_gnn_results = st.checkbox("Show GNN Analysis Results", value=False)
         with col2:
             show_comparison = st.checkbox("Show Comparison Chart", value=True)
             show_heatmap = st.checkbox("Show Importance Heatmap", value=True)
@@ -440,6 +441,61 @@ with tab3:
             top_n = st.slider("Number of Projects", min_value=10, max_value=100, value=50)
             fig = create_project_importance_heatmap(results_df.head(top_n))
             st.plotly_chart(fig, use_container_width=True)
+            
+        # GNN Results Visualization
+        if show_gnn_results and 'gnn_scores' in st.session_state:
+            st.markdown("#### Graph Neural Network Analysis")
+            
+            gnn_scores = st.session_state['gnn_scores']
+            comparison_df = st.session_state.get('comparison_df')
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("##### GNN Importance Scores (Top 10)")
+                gnn_df = pd.DataFrame({
+                    'project': list(gnn_scores.keys()),
+                    'gnn_score': list(gnn_scores.values())
+                }).sort_values('gnn_score', ascending=False).head(10)
+                st.dataframe(gnn_df)
+            
+            with col2:
+                st.markdown("##### GNN vs PageRank Priority Differences")
+                if comparison_df is not None:
+                    # Calculate absolute difference between normalized scores
+                    comparison_df['score_diff'] = abs(
+                        comparison_df['pagerank_score'] - comparison_df['gnn_score']
+                    )
+                    
+                    # Get projects with highest differences
+                    diff_df = comparison_df.sort_values('score_diff', ascending=False).head(5)
+                    st.dataframe(diff_df[['project', 'pagerank_score', 'gnn_score', 'score_diff']])
+                else:
+                    st.info("Run GNN analysis in the Model & Analysis tab to see comparison.")
+                    
+            # Show GNN-weighted graph visualization
+            st.markdown("##### Dependency Graph with GNN Importance")
+            fig = create_dependency_graph_visualization(
+                G,
+                node_size_map=gnn_scores,
+                colorscale='Plasma'  # Different colorscale to distinguish from PageRank
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("""
+            **Note on GNN vs PageRank**: 
+            
+            Graph Neural Networks can identify important projects in the ecosystem that PageRank might miss.
+            While PageRank primarily considers link structure, GNNs learn from:
+            
+            1. Repository graph position
+            2. GitHub metrics and popularity
+            3. Complex patterns in network connectivity
+            
+            This often leads to discovering "unsung heroes" - projects with critical importance but low visibility.
+            """)
+        elif show_gnn_results:
+            st.info("Run GNN analysis in the Model & Analysis tab first.")
     else:
         st.info("Run the analysis in the 'Model & Analysis' tab to generate visualizations.")
 
@@ -472,6 +528,7 @@ with tab4:
     #### 3. Model Development
     - Initial importance scoring using PageRank algorithm
     - Enhanced scoring with weighted contribution approach
+    - Advanced Graph Neural Network (GNN) analysis for deep structural learning
     - Ranking model using machine learning (XGBoost/Linear/Random Forest)
     
     #### 4. Validation Strategy
@@ -545,6 +602,7 @@ with tab4:
         1. Enhanced GitHub data collection with combined API and scraping approaches
         2. Implementation of user feedback loop for model refinement
         3. Expanded dependency discovery through package manifest analysis
+        4. GNN model optimization with additional training data from ecosystem feedback
         """)
         st.markdown("</div>", unsafe_allow_html=True)
     else:
