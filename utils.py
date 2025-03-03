@@ -27,14 +27,18 @@ def export_results_to_csv(
     # Create a copy to avoid modifying the original
     export_df = funding_allocation.copy()
     
-    # Select columns for export
-    if include_metrics:
-        export_columns = ['project', 'importance_score', 'predicted_funding', 'funding_percent']
-    else:
-        export_columns = ['project', 'predicted_funding']
+    # Ensure that the DataFrame has the expected columns
+    column_map = {
+        'Repository': 'Repository',
+        'Importance Score': 'Importance_Score',
+        'Allocation (ETH)': 'Allocation_ETH',
+        'Allocation (%)': 'Allocation_Percent',
+        'Score': 'Importance_Score'
+    }
     
-    # Filter to required columns
-    export_df = export_df[export_columns]
+    # Rename columns using the mapping, but only for columns that exist
+    columns_to_rename = {col: column_map[col] for col in export_df.columns if col in column_map}
+    export_df = export_df.rename(columns=columns_to_rename)
     
     # Export to CSV string
     csv_buffer = io.StringIO()
