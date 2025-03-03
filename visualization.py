@@ -274,6 +274,277 @@ def create_comparison_chart(comparison_df: pd.DataFrame) -> go.Figure:
     logger.info("Score comparison chart created")
     return fig
 
+def create_gnn_relationship_visualization(
+    G: nx.DiGraph,
+    gnn_scores: Dict[str, float],
+    pagerank_scores: Dict[str, float],
+    unsung_heroes: Optional[List[Dict[str, Any]]] = None,
+    colorscale: str = 'Plasma',
+    max_nodes: int = 200,
+    highlight_heroes: bool = True
+) -> go.Figure:
+    """
+    Create a specialized visualization showing GNN-detected relationships
+    with an option to highlight "unsung hero" repositories.
+    
+    Args:
+        G: NetworkX directed graph
+        gnn_scores: Dictionary mapping nodes to GNN importance scores
+        pagerank_scores: Dictionary mapping nodes to PageRank scores
+        unsung_heroes: Optional list of unsung hero dictionaries from identify_unsung_heroes
+        colorscale: Plotly colorscale name
+        max_nodes: Maximum number of nodes to display
+        highlight_heroes: Whether to highlight unsung heroes
+        
+    Returns:
+        Plotly figure with GNN relationship visualization
+    """
+    logger.info("Creating GNN relationship visualization...")
+    
+    # Limit nodes for visualization if too many
+    nodes_list = list(G.nodes())
+    if len(nodes_list) > max_nodes:
+        logger.info(f"Limiting graph to {max_nodes} nodes for visualization")
+        
+        # First, make sure we include unsung heroes
+        nodes_to_keep = []
+        if unsung_heroes and highlight_heroes:
+            hero_nodes = [hero["repository"] for hero in unsung_heroes]
+            nodes_to_keep.extend(hero_nodes[:min(len(hero_nodes), max_nodes // 4)])
+        
+        # Then add top GNN-ranked nodes
+        remaining_slots = max_nodes - len(nodes_to_keep)
+        gnn_ranked_nodes = sorted(gnn_scores.items(), key=lambda x: x[1], reverse=True)
+        for node, _ in gnn_ranked_nodes:
+            if node not in nodes_to_keep and remaining_slots > 0:
+                nodes_to_keep.append(node)
+                remaining_slots -= 1
+        
+        G = nx.DiGraph(G.subgraph(nodes_to_keep))
+    
+    # Create position layout using spring layout with more iterations for better spacing
+    pos = nx.spring_layout(G, seed=42, iterations=100, k=0.3)
+    
+    # Extract positions
+    node_x = []
+    node_y = []
+    for node in G.nodes():
+        node_x.append(pos[node][0])
+        node_y.append(pos[node][1])
+    
+    # Create a node size map based on GNN scores
+    node_sizes = []
+    node_colors = []
+    node_text = []
+    is_hero = []
+    
+    # Track ranges for normalizing
+    min_gnn = min(gnn_scores.values()) if gnn_scores else 0
+    max_gnn = max(gnn_scores.values()) if gnn_scores else 1
+    gnn_range = max_gnn - min_gnn if max_gnn > min_gnn else 1
+    
+    min_pr = min(pagerank_scores.values()) if pagerank_scores else 0
+    max_pr = max(pagerank_scores.values()) if pagerank_scores else 1
+    pr_range = max_pr - min_pr if max_pr > min_pr else 1
+    
+    hero_set = set()
+    if unsung_heroes:
+        hero_set = {hero["repository"] for hero in unsung_heroes}
+    
+    for node in G.nodes():
+        # Size based on GNN score
+        gnn_score = gnn_scores.get(node, 0)
+        # Normalizing to [0,1] for consistency
+        normalized_gnn = (gnn_score - min_gnn) / gnn_range if gnn_range > 0 else 0
+        
+        # Value to display is the difference between normalized GNN and PageRank
+        pr_score = pagerank_scores.get(node, 0)
+        normalized_pr = (pr_score - min_pr) / pr_range if pr_range > 0 else 0
+        
+        # Color indicates the difference between GNN and PageRank scores
+        # Positive = GNN rates higher, Negative = PageRank rates higher
+        score_diff = normalized_gnn - normalized_pr
+        
+        # Track if this is a hero node
+        is_hero_node = node in hero_set
+        is_hero.append(is_hero_node)
+        
+        # Sizes 
+        node_size = 15 + normalized_gnn * 50
+        # Increase size for hero nodes
+        if is_hero_node and highlight_heroes:
+            node_size *= 1.5
+        
+        node_sizes.append(node_size)
+        node_colors.append(score_diff)
+        
+        # Prepare hover text
+        node_text.append(
+            f"<b>{node}</b><br>" +
+            f"GNN Score: {gnn_score:.4f}<br>" +
+            f"PageRank: {pr_score:.4f}<br>" +
+            f"Difference: {score_diff:.4f}" +
+            (f"<br><b>UNSUNG HERO!</b>" if is_hero_node else "")
+        )
+    
+    # Create edge traces with directional arrows
+    edge_traces = []
+    for edge in G.edges():
+        x0, y0 = pos[edge[0]]
+        x1, y1 = pos[edge[1]]
+        
+        # Calculate arrow position (80% along the edge)
+        arrow_x = x0 + 0.8 * (x1 - x0)
+        arrow_y = y0 + 0.8 * (y1 - y0)
+        
+        # Edge line
+        edge_trace = go.Scatter(
+            x=[x0, x1], 
+            y=[y0, y1],
+            mode='lines',
+            line=dict(width=1, color='rgba(100,100,100,0.2)'),
+            hoverinfo='none'
+        )
+        edge_traces.append(edge_trace)
+        
+        # Arrow head (small triangle)
+        dx = x1 - x0
+        dy = y1 - y0
+        angle = np.arctan2(dy, dx)
+        
+        # Create a small triangle as arrow
+        arrow_size = 0.02
+        arrow_trace = go.Scatter(
+            x=[arrow_x, 
+               arrow_x + arrow_size * np.cos(angle + np.pi - np.pi/4), 
+               arrow_x + arrow_size * np.cos(angle + np.pi + np.pi/4),
+               arrow_x],
+            y=[arrow_y, 
+               arrow_y + arrow_size * np.sin(angle + np.pi - np.pi/4),
+               arrow_y + arrow_size * np.sin(angle + np.pi + np.pi/4),
+               arrow_y],
+            mode='lines',
+            fill='toself',
+            line=dict(width=0),
+            fillcolor='rgba(100,100,100,0.4)',
+            hoverinfo='none'
+        )
+        edge_traces.append(arrow_trace)
+    
+    # Create two node traces - one for regular nodes and one for heroes
+    if highlight_heroes and any(is_hero):
+        # Regular nodes
+        regular_indices = [i for i, hero in enumerate(is_hero) if not hero]
+        if regular_indices:
+            regular_trace = go.Scatter(
+                x=[node_x[i] for i in regular_indices],
+                y=[node_y[i] for i in regular_indices],
+                mode='markers',
+                marker=dict(
+                    size=[node_sizes[i] for i in regular_indices],
+                    color=[node_colors[i] for i in regular_indices],
+                    colorscale=colorscale,
+                    colorbar=dict(
+                        title='GNN vs PageRank',
+                        thickness=15,
+                        xanchor='left',
+                        x=1.02
+                    ),
+                    line=dict(width=1, color='#888')
+                ),
+                text=[node_text[i] for i in regular_indices],
+                hoverinfo='text',
+                name='Regular Projects'
+            )
+        else:
+            regular_trace = None
+        
+        # Hero nodes with different appearance
+        hero_indices = [i for i, hero in enumerate(is_hero) if hero]
+        hero_trace = go.Scatter(
+            x=[node_x[i] for i in hero_indices],
+            y=[node_y[i] for i in hero_indices],
+            mode='markers',
+            marker=dict(
+                size=[node_sizes[i] for i in hero_indices],
+                color='rgba(255, 65, 54, 0.9)',  # Red for heroes
+                symbol='star',  # Star shape for heroes
+                line=dict(width=2, color='rgb(50, 50, 50)')
+            ),
+            text=[node_text[i] for i in hero_indices],
+            hoverinfo='text',
+            name='Unsung Heroes'
+        )
+        
+        # Combine traces
+        node_traces = [hero_trace]
+        if regular_trace:
+            node_traces.append(regular_trace)
+    else:
+        # Standard node trace without hero highlighting
+        node_trace = go.Scatter(
+            x=node_x,
+            y=node_y,
+            mode='markers',
+            marker=dict(
+                size=node_sizes,
+                color=node_colors,
+                colorscale=colorscale,
+                colorbar=dict(
+                    title='GNN vs PageRank',
+                    thickness=15,
+                    xanchor='left',
+                    x=1.02
+                ),
+                line=dict(width=1, color='#888')
+            ),
+            text=node_text,
+            hoverinfo='text'
+        )
+        node_traces = [node_trace]
+    
+    # Create figure
+    fig = go.Figure(
+        data=edge_traces + node_traces,
+        layout=go.Layout(
+            title=dict(
+                text='GNN Relationship Analysis' + 
+                     (' (Highlighting Unsung Heroes)' if highlight_heroes and any(is_hero) else ''),
+                font=dict(size=16)
+            ),
+            showlegend=highlight_heroes and any(is_hero),
+            hovermode='closest',
+            margin=dict(b=20, l=5, r=5, t=40),
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            legend=dict(
+                x=0,
+                y=1.1,
+                orientation='h'
+            )
+        )
+    )
+    
+    # Add annotation explaining the color scale
+    fig.add_annotation(
+        x=1.0,
+        y=0.0,
+        xref='paper',
+        yref='paper',
+        text='Higher GNN score than PageRank → Warmer colors<br>Higher PageRank than GNN → Cooler colors',
+        showarrow=False,
+        font=dict(size=10),
+        bgcolor='rgba(255,255,255,0.8)',
+        bordercolor='rgba(0,0,0,0.3)',
+        borderwidth=1,
+        borderpad=4,
+        align='left'
+    )
+    
+    logger.info("GNN relationship visualization created")
+    return fig
+
+
 def create_tier_distribution_chart(
     graph_tiers: Dict[str, int],
     importance_scores: Dict[str, float]

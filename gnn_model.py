@@ -585,7 +585,7 @@ def apply_gnn_funding_allocation(
         Dictionary mapping node names to funding amounts
     """
     # Optionally optimize parameters
-    if optimize_params and len(G.nodes()) < 500:  # Only optimize for reasonably sized graphs
+    if optimize_params and len(list(G.nodes())) < 500:  # Only optimize for reasonably sized graphs
         logger.info("Optimizing GNN parameters for funding allocation...")
         # Use PageRank as reference for supervised optimization
         pagerank_scores = nx.pagerank(G, alpha=0.85)
